@@ -5,7 +5,7 @@ sidebar_position: 1
 # Transaction Lifecycle
 
 :::note Synopsis
-This document describes the lifecycle of a transaction from creation to committed state changes. Transaction definition is described in a [different doc](../core/01-transactions.md). The transaction is referred to as `Tx`.
+このドキュメントでは、トランザクションの作成から確定したステート変更までのライフサイクルについて説明します。トランザクションの定義は、[別のドキュメント](../core/01-transactions.md)で説明されています。このトランザクションは`Tx`と呼ばれます。
 :::
 
 :::note Pre-requisite Readings
@@ -17,33 +17,33 @@ This document describes the lifecycle of a transaction from creation to committe
 
 ### Transaction Creation
 
-One of the main application interfaces is the command-line interface. The transaction `Tx` can be created by the user inputting a command in the following format from the [command-line](../core/07-cli.md), providing the type of transaction in `[command]`, arguments in `[args]`, and configurations such as gas prices in `[flags]`:
+主要なアプリケーションインターフェースの1つは、コマンドラインインターフェースです。トランザクション`Tx`は、ユーザーがコマンドラインから以下の形式でコマンドを入力することで作成されます。`[command]`にはトランザクションの種類、`[args]`には引数、および`[flags]`にはガス価格などの設定を指定します。
 
 ```bash
 [appname] tx [command] [args] [flags]
 ```
 
-This command automatically **creates** the transaction, **signs** it using the account's private key, and **broadcasts** it to the specified peer node.
+このコマンドはトランザクションを自動的に**作成**し、アカウントの秘密鍵を使用して**署名**し、指定したピアノードに**ブロードキャスト**します。
 
-There are several required and optional flags for transaction creation. The `--from` flag specifies which [account](./03-accounts.md) the transaction is originating from. For example, if the transaction is sending coins, the funds are drawn from the specified `from` address.
+トランザクションの作成にはいくつかの必須およびオプションのフラグがあります。`--from`フラグは、トランザクションの発信元となる[アカウント](./03-accounts.md)を指定します。たとえば、コインを送信するトランザクションの場合、指定した`from`アドレスから資金が引き出されます。
 
 #### Gas and Fees
 
-Additionally, there are several [flags](../core/07-cli.md) users can use to indicate how much they are willing to pay in [fees](./04-gas-fees.md):
+さらに、ユーザーは[手数料](./04-gas-fees.md)としていくら支払うかを示すために、いくつかの[フラグ](../core/07-cli.md)を使用することができます。
 
-* `--gas` refers to how much [gas](./04-gas-fees.md), which represents computational resources, `Tx` consumes. Gas is dependent on the transaction and is not precisely calculated until execution, but can be estimated by providing `auto` as the value for `--gas`.
-* `--gas-adjustment` (optional) can be used to scale `gas` up in order to avoid underestimating. For example, users can specify their gas adjustment as 1.5 to use 1.5 times the estimated gas.
-* `--gas-prices` specifies how much the user is willing to pay per unit of gas, which can be one or multiple denominations of tokens. For example, `--gas-prices=0.025uatom, 0.025upho` means the user is willing to pay 0.025uatom AND 0.025upho per unit of gas.
-* `--fees` specifies how much in fees the user is willing to pay in total.
-* `--timeout-height` specifies a block timeout height to prevent the tx from being committed past a certain height.
+* `--gas`は、トランザクション`Tx`が消費する[ガス](./04-gas-fees.md)、つまり計算リソースの量を指します。ガスはトランザクションに依存し、実行まで正確に計算されるわけではありませんが、`--gas`の値として`auto`を指定することで推定することができます。
+* `--gas-adjustment`（オプション）は、ガスを過小評価しないために`gas`をスケーリングするために使用できます。たとえば、ユーザーはガス調整を1.5として指定して、推定ガスの1.5倍を使用できます。
+* `--gas-prices`は、ユーザーがガス1単位あたりにいくら支払うかを指定します。これはトークンの1つまたは複数の通貨単位で指定できます。例えば、`--gas-prices=0.025uatom, 0.025upho`は、ユーザーがガス1単位あたりに0.025uatomと0.025uphoを支払う意志があることを示します。
+* `--fees`は、ユーザーが合計いくらの手数料を支払う意志があるかを指定します。
+* `--timeout-height`は、トランザクションが特定の高さを超えてコミットされないようにするためのブロックタイムアウトの高さを指定します。
 
-The ultimate value of the fees paid is equal to the gas multiplied by the gas prices. In other words, `fees = ceil(gas * gasPrices)`. Thus, since fees can be calculated using gas prices and vice versa, the users specify only one of the two.
+支払われる手数料の最終的な値は、ガスにガス価格を掛けたものです。言い換えれば、`手数料 = ceil(ガス * ガス価格)`です。したがって、ガス価格または逆にガスを使用して手数料を計算できるため、ユーザーはそのうちの1つだけを指定します。
 
-Later, validators decide whether or not to include the transaction in their block by comparing the given or calculated `gas-prices` to their local `min-gas-prices`. `Tx` is rejected if its `gas-prices` is not high enough, so users are incentivized to pay more.
+後で、バリデータは与えられたまたは計算された`gas-prices`と、ローカルの`min-gas-prices`を比較して、トランザクションを自分のブロックに含めるかどうかを決定します。`Tx`の`gas-prices`が十分に高くない場合、トランザクションは拒否されるため、ユーザーはより多く支払うインセンティブがあります。
 
 #### CLI Example
 
-Users of the application `app` can enter the following command into their CLI to generate a transaction to send 1000uatom from a `senderAddress` to a `recipientAddress`. The command specifies how much gas they are willing to pay: an automatic estimate scaled up by 1.5 times, with a gas price of 0.025uatom per unit gas.
+アプリケーション`app`のユーザーは、次のコマンドをCLIに入力して、`senderAddress`から`recipientAddress`へ1000uatomを送信するトランザクションを生成できます。このコマンドでは、支払う意志のあるガスの量が指定されています：自動推定値を1.5倍にスケーリングし、ガス1単位あたりの価格を0.025uatomとしています。
 
 ```bash
 appd tx send <recipientAddress> 1000uatom --from <senderAddress> --gas auto --gas-adjustment 1.5 --gas-prices 0.025uatom
@@ -51,113 +51,81 @@ appd tx send <recipientAddress> 1000uatom --from <senderAddress> --gas auto --ga
 
 #### Other Transaction Creation Methods
 
-The command-line is an easy way to interact with an application, but `Tx` can also be created using a [gRPC or REST interface](../core/06-grpc_rest.md) or some other entry point defined by the application developer. From the user's perspective, the interaction depends on the web interface or wallet they are using (e.g. creating `Tx` using [Lunie.io](https://lunie.io/#/) and signing it with a Ledger Nano S).
+コマンドラインはアプリケーションと対話する簡単な方法ですが、`Tx`は[gRPCまたはRESTインターフェース](../core/06-grpc_rest.md)、またはアプリケーション開発者によって定義された他のエントリーポイントを使用して作成することもできます。ユーザーの視点からは、対話はWebインターフェースまたは使用しているウォレットに依存します（たとえば、[Lunie.io](https://lunie.io/#/)を使用して`Tx`を作成し、Ledger Nano Sで署名することによる`Tx`の作成）。
 
 ## Addition to Mempool
 
-Each full-node (running CometBFT) that receives a `Tx` sends an [ABCI message](https://docs.cometbft.com/v0.37/spec/p2p/messages/),
-`CheckTx`, to the application layer to check for validity, and receives an `abci.ResponseCheckTx`. If the `Tx` passes the checks, it is held in the node's
-[**Mempool**](https://docs.cometbft.com/v0.37/spec/p2p/messages/mempool/), an in-memory pool of transactions unique to each node, pending inclusion in a block - honest nodes discard a `Tx` if it is found to be invalid. Prior to consensus, nodes continuously check incoming transactions and gossip them to their peers.
+各フルノード（CometBFTを実行中）は、`Tx`を受信するとアプリケーションレイヤに対して[ABCIメッセージ](https://docs.cometbft.com/v0.37/spec/p2p/messages/)である`CheckTx`を送信し、`abci.ResponseCheckTx`を受け取ります。`Tx`がチェックに合格する場合、それはノードの[**Mempool**](https://docs.cometbft.com/v0.37/spec/p2p/messages/mempool/)に保持されます。Mempoolは各ノードごとに固有のメモリ内プールであり、ブロックに含めるため保留中のトランザクションを格納します。正直なノードは、`Tx`が無効であると判明した場合、それを破棄します。合意の前に、ノードは受信したトランザクションを継続的にチェックし、ピアにゴシップします。
 
 ### Types of Checks
 
-The full-nodes perform stateless, then stateful checks on `Tx` during `CheckTx`, with the goal to
-identify and reject an invalid transaction as early on as possible to avoid wasted computation.
+フルノードは、`CheckTx`中に`Tx`に対してステートのない（stateless）チェックとステートのある（stateful）チェックを実行し、無駄な計算を避けるためにできるだけ早く無効なトランザクションを特定して拒否することを目指しています。
 
-**_Stateless_** checks do not require nodes to access state - light clients or offline nodes can do
-them - and are thus less computationally expensive. Stateless checks include making sure addresses
-are not empty, enforcing nonnegative numbers, and other logic specified in the definitions.
+**_stateless_** チェックは、ノードがステートにアクセスする必要がないため、軽量クライアントやオフラインノードでも実行でき、したがって計算コストが低く済みます。ステートのないチェックには、アドレスが空でないこと、非負の数値が強制されること、および他の定義で指定されたロジックが含まれます。
 
-**_Stateful_** checks validate transactions and messages based on a committed state. Examples
-include checking that the relevant values exist and can be transacted with, the address
-has sufficient funds, and the sender is authorized or has the correct ownership to transact.
-At any given moment, full-nodes typically have [multiple versions](../core/00-baseapp.md#state-updates)
-of the application's internal state for different purposes. For example, nodes execute state
-changes while in the process of verifying transactions, but still need a copy of the last committed
-state in order to answer queries - they should not respond using state with uncommitted changes.
+**_stateful_** チェックは、コミットされたステートに基づいてトランザクションとメッセージを検証します。例として、関連する値が存在し取引可能であること、アドレスに十分な資金があること、および送信者が承認されているか正しい所有権を持っていることを確認します。任意の時点で、フルノードは通常、アプリケーションの内部ステートの[複数のバージョン](../core/00-baseapp.md#state-updates)を異なる目的のために持っています。たとえば、ノードはトランザクションの検証プロセス中にステート変更を実行しますが、クエリに答えるためには最後にコミットされたステートのコピーが必要です。未確定の変更があるステートで応答すべきではありません。
 
-In order to verify a `Tx`, full-nodes call `CheckTx`, which includes both _stateless_ and _stateful_
-checks. Further validation happens later in the [`DeliverTx`](#delivertx) stage. `CheckTx` goes
-through several steps, beginning with decoding `Tx`.
+フルノードは`Tx`を検証するために`CheckTx`を呼び出し、これにはステートのない（stateless）チェックとステートのある（stateful）チェックの両方が含まれます。さらなる検証は後で[`DeliverTx`](#delivertx)段階で行われます。`CheckTx`はいくつかのステップを経ており、`Tx`のデコードから始まります。
+
 
 ### Decoding
 
-When `Tx` is received by the application from the underlying consensus engine (e.g. CometBFT ), it is still in its [encoded](../core/05-encoding.md) `[]byte` form and needs to be unmarshaled in order to be processed. Then, the [`runTx`](../core/00-baseapp.md#runtx-antehandler-runmsgs-posthandler) function is called to run in `runTxModeCheck` mode, meaning the function runs all checks but exits before executing messages and writing state changes.
+アプリケーションがアンダーリングのコンセンサスエンジン（例：CometBFT）から`Tx`を受信すると、`Tx`はまだその[エンコードされた](../core/05-encoding.md)`[]byte`形式のままであり、処理されるためにはアンマーシャルされる必要があります。その後、[`runTx`](../core/00-baseapp.md#runtx-antehandler-runmsgs-posthandler)関数が`runTxModeCheck`モードで呼び出され、この関数はすべてのチェックを実行しますが、メッセージの実行とステートの変更の書き込みの前に終了します。
 
 ### ValidateBasic (deprecated)
 
-Messages ([`sdk.Msg`](../core/01-transactions.md#messages)) are extracted from transactions (`Tx`). The `ValidateBasic` method of the `sdk.Msg` interface implemented by the module developer is run for each transaction. 
-To discard obviously invalid messages, the `BaseApp` type calls the `ValidateBasic` method very early in the processing of the message in the [`CheckTx`](../core/00-baseapp.md#checktx) and [`DeliverTx`](../core/00-baseapp.md#delivertx) transactions.
-`ValidateBasic` can include only **stateless** checks (the checks that do not require access to the state). 
+メッセージ（[`sdk.Msg`](../core/01-transactions.md#messages)）は、トランザクション（`Tx`）から抽出されます。モジュール開発者が実装する`sdk.Msg`インターフェースの`ValidateBasic`メソッドは、各トランザクションに対して実行されます。
+明らかに無効なメッセージを破棄するために、`BaseApp`タイプはメッセージの処理の非常に早い段階で`ValidateBasic`メソッドを[`CheckTx`](../core/00-baseapp.md#checktx)および[`DeliverTx`](../core/00-baseapp.md#delivertx)トランザクションで呼び出します。
+`ValidateBasic`は、**ステートレス**チェック（ステートへのアクセスを必要としないチェック）のみを含めることができます。
 
 :::warning
-The `ValidateBasic` method on messages has been deprecated in favor of validating messages directly in their respective [`Msg` services](../building-modules/03-msg-services.md#Validation).
+メッセージの`ValidateBasic`メソッドは、それぞれの対応する[`Msg`サービス](../building-modules/03-msg-services.md#Validation)で直接メッセージを検証することを推奨するために廃止されました。
 
-Read [RFC 001](https://docs.cosmos.network/main/rfc/rfc-001-tx-validation) for more details.
+詳細については、[RFC 001](https://docs.cosmos.network/main/rfc/rfc-001-tx-validation)を参照してください。
 :::
 
 :::note
-`BaseApp` still calls `ValidateBasic` on messages that implements that method for backwards compatibility.
+`BaseApp`は、そのメソッドを実装するメッセージに対して`ValidateBasic`をまだ呼び出し、後方互換性を保っています。
 :::
 
 #### Guideline
 
-`ValidateBasic` should not be used anymore. Message validation should be performed in the `Msg` service when [handling a message](../building-modules/msg-services#Validation) in a module Msg Server.
+`ValidateBasic`はもはや使用されるべきではありません。メッセージの検証は、モジュールのMsgサーバーでメッセージを処理する際に、`Msg`サービス内で行うべきです。
 
 ### AnteHandler
 
-`AnteHandler`s even though optional, are in practice very often used to perform signature verification, gas calculation, fee deduction, and other core operations related to blockchain transactions.
+`AnteHandler`は任意ですが、実際には非常に頻繁に使用され、署名の検証、ガスの計算、手数料の差し引きなど、ブロックチェーントランザクションに関連する他のコアな操作を実行するために使用されます。
 
-A copy of the cached context is provided to the `AnteHandler`, which performs limited checks specified for the transaction type. Using a copy allows the `AnteHandler` to do stateful checks for `Tx` without modifying the last committed state, and revert back to the original if the execution fails.
+キャッシュされたコンテキストのコピーが`AnteHandler`に提供され、トランザクションタイプに指定された限定的なチェックを実行します。コピーを使用することで、`AnteHandler`は最後にコミットされた状態を変更せずに`Tx`のステートフルなチェックを行い、実行が失敗した場合に元に戻すことができます。
 
-For example, the [`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth/spec) module `AnteHandler` checks and increments sequence numbers, checks signatures and account numbers, and deducts fees from the first signer of the transaction - all state changes are made using the `checkState`.
+例えば、[`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth/spec)モジュールの`AnteHandler`は、シーケンス番号のチェックと増分、署名とアカウント番号のチェック、トランザクションの最初の署名者から手数料を差し引くなどを行います。すべてのステート変更は`checkState`を使用して行われます
 
 ### Gas
 
-The [`Context`](../core/02-context.md), which keeps a `GasMeter` that tracks how much gas is used during the execution of `Tx`, is initialized. The user-provided amount of gas for `Tx` is known as `GasWanted`. If `GasConsumed`, the amount of gas consumed during execution, ever exceeds `GasWanted`, the execution stops and the changes made to the cached copy of the state are not committed. Otherwise, `CheckTx` sets `GasUsed` equal to `GasConsumed` and returns it in the result. After calculating the gas and fee values, validator-nodes check that the user-specified `gas-prices` is greater than their locally defined `min-gas-prices`.
+[`Context`](../core/02-context.md)は`GasMeter`を保持し、`Tx`の実行中に使用されるガスの量を追跡します。`Tx`のためにユーザーが提供したガスの量は`GasWanted`として知られています。実行中に消費されるガスの量である`GasConsumed`が、いつでも`GasWanted`を超える場合、実行は停止し、ステートのキャッシュコピーに対する変更はコミットされません。それ以外の場合、`CheckTx`は`GasUsed`を`GasConsumed`と等しく設定し、その結果を返します。ガスと手数料の値を計算した後、バリデータノードは、ユーザーが指定した`gas-prices`がローカルで定義された`min-gas-prices`よりも大きいかどうかを確認します。
 
 ### Discard or Addition to Mempool
 
-If at any point during `CheckTx` the `Tx` fails, it is discarded and the transaction lifecycle ends
-there. Otherwise, if it passes `CheckTx` successfully, the default protocol is to relay it to peer
-nodes and add it to the Mempool so that the `Tx` becomes a candidate to be included in the next block.
+`CheckTx`の実行中にいかなる段階でも`Tx`が失敗すると、それは破棄され、トランザクションのライフサイクルはそこで終了します。それ以外の場合、`CheckTx`を成功裏に通過すると、デフォルトのプロトコルではピアノードに中継され、Mempoolに追加されるため、`Tx`は次のブロックに含まれる候補となります。
 
-The **mempool** serves the purpose of keeping track of transactions seen by all full-nodes.
-Full-nodes keep a **mempool cache** of the last `mempool.cache_size` transactions they have seen, as a first line of
-defense to prevent replay attacks. Ideally, `mempool.cache_size` is large enough to encompass all
-of the transactions in the full mempool. If the mempool cache is too small to keep track of all
-the transactions, `CheckTx` is responsible for identifying and rejecting replayed transactions.
+**メンプール**は、すべてのフルノードによって見られるトランザクションを追跡するためのものです。フルノードは、最後に見た`mempool.cache_size`個のトランザクションをメンプールキャッシュとして保持し、リプレイ攻撃を防ぐための第一の防御線としています。理想的には、`mempool.cache_size`はすべてのトランザクションをカバーできるだけの大きさです。メンプールキャッシュがすべてのトランザクションを追跡するのに十分な大きさでない場合、`CheckTx`はリプレイされたトランザクションを特定して拒否する責任があります。
 
-Currently existing preventative measures include fees and a `sequence` (nonce) counter to distinguish
-replayed transactions from identical but valid ones. If an attacker tries to spam nodes with many
-copies of a `Tx`, full-nodes keeping a mempool cache reject all identical copies instead of running
-`CheckTx` on them. Even if the copies have incremented `sequence` numbers, attackers are
-disincentivized by the need to pay fees.
+現在存在する予防策には、手数料と`sequence`（nonce）カウンターが含まれ、リプレイされたトランザクションと同一だが有効なものと区別します。攻撃者が多数のコピーの`Tx`でノードをスパムしようとする場合、メンプールキャッシュを保持するフルノードは、コピーすべてを実際には`CheckTx`を実行する代わりに拒否します。コピーが`sequence`番号を増やしていても、攻撃者は手数料を支払う必要があるため、動機づけられます。
 
-Validator nodes keep a mempool to prevent replay attacks, just as full-nodes do, but also use it as
-a pool of unconfirmed transactions in preparation of block inclusion. Note that even if a `Tx`
-passes all checks at this stage, it is still possible to be found invalid later on, because
-`CheckTx` does not fully validate the transaction (that is, it does not actually execute the messages).
+バリデータノードもフルノードと同様にリプレイ攻撃を防ぐためにメンプールを保持しますが、同時にブロックへの含まれる準備として確認されていないトランザクションのプールとしても使用します。なお、この段階で`Tx`がすべてのチェックに合格したとしても、後で無効と判断される可能性があります。なぜなら、`CheckTx`はトランザクションを完全に検証しないからです（つまり、実際にはメッセージを実行しません）。
+
 
 ## Inclusion in a Block
 
-Consensus, the process through which validator nodes come to agreement on which transactions to
-accept, happens in **rounds**. Each round begins with a proposer creating a block of the most
-recent transactions and ends with **validators**, special full-nodes with voting power responsible
-for consensus, agreeing to accept the block or go with a `nil` block instead. Validator nodes
-execute the consensus algorithm, such as [CometBFT](https://docs.cometbft.com/v0.37/spec/consensus/),
-confirming the transactions using ABCI requests to the application, in order to come to this agreement.
+コンセンサスは、バリデータノードがどのトランザクションを受け入れるかに合意する過程で、**ラウンド**と呼ばれる単位で行われます。各ラウンドは、提案者が最新のトランザクションからブロックを作成し、**バリデータ**（コンセンサスを担当する投票権を持つ特別なフルノード）がそのブロックを受け入れるか、代わりに`nil`ブロックを選択することで終了します。バリデータノードはコンセンサスアルゴリズム（例：[CometBFT](https://docs.cometbft.com/v0.37/spec/consensus/)）を実行し、この合意に至るためにアプリケーションへABCIリクエストを使用してトランザクションを確認します。
 
-The first step of consensus is the **block proposal**. One proposer amongst the validators is chosen
-by the consensus algorithm to create and propose a block - in order for a `Tx` to be included, it
-must be in this proposer's mempool.
+コンセンサスの最初のステップは**ブロック提案**です。バリデータの中からコンセンサスアルゴリズムによって選ばれた1人の提案者が、ブロックを作成し提案します。`Tx`が含まれるためには、この提案者のメンプールに含まれている必要があります。
 
 ## State Changes
 
-The next step of consensus is to execute the transactions to fully validate them. All full-nodes
-that receive a block proposal from the correct proposer execute the transactions by calling the ABCI function `FinalizeBlock`. 
-As mentioned throughout the documentation `BeginBlock`, `ExecuteTx` and `EndBlock` are called within FinalizeBlock. 
-Although every full-node operates individually and locally, the outcome is always consistent and unequivocal. This is because the state changes brought about by the messages are predictable, and the transactions are specifically sequenced in the proposed block.
+コンセンサスの次のステップは、トランザクションを実行して完全に検証することです。正しい提案者からブロック提案を受け取るすべてのフルノードは、ABCI関数`FinalizeBlock`を呼び出すことでトランザクションを実行します。
+ドキュメント全体で述べられているように、`BeginBlock`、`ExecuteTx`、`EndBlock`はすべて`FinalizeBlock`内で呼び出されます。
+各フルノードは個別にローカルに操作しますが、その結果は常に一貫して明確です。これは、メッセージによってもたらされるステートの変更が予測可能であり、トランザクションが提案されたブロック内で特定の順序で配置されているためです。
 
 ```text
 		-----------------------
@@ -203,62 +171,32 @@ Although every full-node operates individually and locally, the outcome is alway
 
 ### Transaction Execution
 
-The `FinalizeBlock` ABCI function defined in [`BaseApp`](../core/00-baseapp.md) does the bulk of the
-state transitions: it is run for each transaction in the block in sequential order as committed
-to during consensus. Under the hood, transaction execution is almost identical to `CheckTx` but calls the
-[`runTx`](../core/00-baseapp.md#runtx) function in deliver mode instead of check mode.
-Instead of using their `checkState`, full-nodes use `finalizeblock`:
+[`BaseApp`](../core/00-baseapp.md)で定義された`FinalizeBlock` ABCI関数は、ステートの大部分の遷移を行います。これは、コンセンサス中にコミットされた順序でブロック内の各トランザクションに対して順次実行されます。内部的には、トランザクションの実行はほぼ`CheckTx`と同じですが、チェックモードの代わりに実行モードである[`runTx`](../core/00-baseapp.md#runtx)関数を呼び出します。
+フルノードは、`checkState`ではなく`finalizeblock`を使用します。
 
-* **Decoding:** Since `FinalizeBlock` is an ABCI call, `Tx` is received in the encoded `[]byte` form.
-  Nodes first unmarshal the transaction, using the [`TxConfig`](./app-anatomy#register-codec) defined in the app, then call `runTx` in `execModeFinalize`, which is very similar to `CheckTx` but also executes and writes state changes.
+* **デコード:** `FinalizeBlock`はABCI呼び出しであるため、`Tx`はエンコードされた`[]byte`形式で受信されます。ノードはまずトランザクションをアンマーシャルし、アプリで定義された[`TxConfig`](./app-anatomy#register-codec)を使用して、その後`runTx`を`execModeFinalize`で呼び出します。これは`CheckTx`と非常に似ていますが、実際には実行とステートの変更も行います。
 
-* **Checks and `AnteHandler`:** Full-nodes call `validateBasicMsgs` and `AnteHandler` again. This second check
-  happens because they may not have seen the same transactions during the addition to Mempool stage 
-  and a malicious proposer may have included invalid ones. One difference here is that the
-  `AnteHandler` does not compare `gas-prices` to the node's `min-gas-prices` since that value is local
-  to each node - differing values across nodes yield nondeterministic results.
+* **チェックと`AnteHandler`:** フルノードは再び`validateBasicMsgs`と`AnteHandler`を呼び出します。この2回目のチェックは、Mempoolへの追加時に同じトランザクションを見ていない可能性があるためであり、悪意のある提案者が無効なトランザクションを含めている可能性があります。ここでの違いは、`AnteHandler`がノードの`min-gas-prices`と`gas-prices`を比較しないことです。なぜならその値は各ノードごとに異なるためであり、ノード間で異なる値があると非決定的な結果が得られるからです。
 
-* **`MsgServiceRouter`:** After `CheckTx` exits, `FinalizeBlock` continues to run
-  [`runMsgs`](../core/00-baseapp.md#runtx-antehandler-runmsgs-posthandler) to fully execute each `Msg` within the transaction.
-  Since the transaction may have messages from different modules, `BaseApp` needs to know which module
-  to find the appropriate handler. This is achieved using `BaseApp`'s `MsgServiceRouter` so that it can be processed by the module's Protobuf [`Msg` service](../building-modules/03-msg-services.md).
-  For `LegacyMsg` routing, the `Route` function is called via the [module manager](../building-modules/01-module-manager.md) to retrieve the route name and find the legacy [`Handler`](../building-modules/03-msg-services.md#handler-type) within the module.
+* **`MsgServiceRouter`:** `CheckTx`が終了した後、`FinalizeBlock`は[`runMsgs`](../core/00-baseapp.md#runtx-antehandler-runmsgs-posthandler)を実行してトランザクション内の各`Msg`を完全に実行します。トランザクションには異なるモジュールからのメッセージが含まれている可能性があるため、`BaseApp`は適切なハンドラを見つけるためにどのモジュールを使用するかを知る必要があります。これは`BaseApp`の`MsgServiceRouter`を使用して実現され、モジュールのProtobuf [`Msg` サービス](../building-modules/03-msg-services.md)によって処理されるようになります。
+`LegacyMsg`ルーティングでは、[モジュールマネージャ](../building-modules/01-module-manager.md)を介して`Route`関数が呼び出され、ルート名を取得し、モジュール内のレガシーな[`Handler`](../building-modules/03-msg-services.md#handler-type)を見つけます。
   
-* **`Msg` service:** Protobuf `Msg` service is responsible for executing each message in the `Tx` and causes state transitions to persist in `finalizeBlockState`.
+* **`Msg`サービス:** Protobuf `Msg`サービスは、各メッセージを`Tx`内で実行し、ステートの遷移を`finalizeBlockState`に永続化する責任があります。
 
-* **PostHandlers:** [`PostHandler`](../core/00-baseapp.md#posthandler)s run after the execution of the message. If they fail, the state change of `runMsgs`, as well of `PostHandlers`, are both reverted.
+* **PostHandlers:** [`PostHandler`](../core/00-baseapp.md#posthandler)は、メッセージの実行後に実行されます。もし失敗した場合、`runMsgs`のステート変更および`PostHandlers`のステート変更の両方が元に戻されます。
 
-* **Gas:** While a `Tx` is being delivered, a `GasMeter` is used to keep track of how much
-  gas is being used; if execution completes, `GasUsed` is set and returned in the
-  `abci.ExecTxResult`. If execution halts because `BlockGasMeter` or `GasMeter` has run out or something else goes
-  wrong, a deferred function at the end appropriately errors or panics.
+* **Gas:** `Tx`がデリバリーされている間、`GasMeter`はどれだけのガスが使用されているかを追跡するために使用されます。実行が完了すると、`GasUsed`が設定され、`abci.ExecTxResult`で返されます。もし実行が中断される場合、`BlockGasMeter`または`GasMeter`が枯渇したか、何か他の問題が発生した場合、最後に遅延実行される関数が適切にエラーまたはパニックを発生させます。
 
-If there are any failed state changes resulting from a `Tx` being invalid or `GasMeter` running out,
-the transaction processing terminates and any state changes are reverted. Invalid transactions in a
-block proposal cause validator nodes to reject the block and vote for a `nil` block instead.
+`Tx`が無効であるか、`GasMeter`が枯渇したために発生したステート変更がある場合、トランザクションの処理は中断され、ステートの変更は元に戻されます。提案されたブロック内の無効なトランザクションは、バリデータノードがブロックを拒否し、代わりに`nil`ブロックに投票する原因となります。
+
+
 
 ### Commit
 
-The final step is for nodes to commit the block and state changes. Validator nodes
-perform the previous step of executing state transitions in order to validate the transactions,
-then sign the block to confirm it. Full nodes that are not validators do not
-participate in consensus - i.e. they cannot vote - but listen for votes to understand whether or
-not they should commit the state changes.
+最終ステップは、ノードがブロックとステート変更を確定することです。バリデータノードは、トランザクションを検証するためにステート遷移を実行し、その後ブロックに署名して確認します。バリデータでないフルノードはコンセンサスに参加せず、投票することはできませんが、ステート変更を確定すべきかどうかを理解するために投票を受信します。
 
-When they receive enough validator votes (2/3+ _precommits_ weighted by voting power), full nodes commit to a new block to be added to the blockchain and
-finalize the state transitions in the application layer. A new state root is generated to serve as
-a merkle proof for the state transitions. Applications use the [`Commit`](../core/00-baseapp.md#commit)
-ABCI method inherited from [Baseapp](../core/00-baseapp.md); it syncs all the state transitions by
-writing the `deliverState` into the application's internal state. As soon as the state changes are
-committed, `checkState` starts afresh from the most recently committed state and `deliverState`
-resets to `nil` in order to be consistent and reflect the changes.
+バリデータの投票が十分に集まると（投票パワーで重み付けされた2/3以上の _precommit_）、フルノードは新しいブロックをコミットし、アプリケーション層でステート遷移を確定させます。新しいステートルートが生成され、ステート遷移のMerkleプルーフとして機能します。アプリケーションは、[Baseapp](../core/00-baseapp.md)から継承された[`Commit`](../core/00-baseapp.md#commit) ABCIメソッドを使用します。これにより、アプリケーションの内部ステートに`deliverState`を書き込むことで、すべてのステート遷移を同期させます。ステート変更が確定すると、`checkState`は最新の確定ステートから再起動し、`deliverState`は変更を反映し一貫性を保つために`nil`にリセットされます。
 
-Note that not all blocks have the same number of transactions and it is possible for consensus to
-result in a `nil` block or one with none at all. In a public blockchain network, it is also possible
-for validators to be **byzantine**, or malicious, which may prevent a `Tx` from being committed in
-the blockchain. Possible malicious behaviors include the proposer deciding to censor a `Tx` by
-excluding it from the block or a validator voting against the block.
+すべてのブロックが同じ数のトランザクションを持っているわけではなく、コンセンサスによって`nil`ブロックまたはまったくトランザクションのないブロックになる可能性があります。公開ブロックチェーンネットワークでは、バリデータが**ビザンチン**、または悪意のある振る舞いをする可能性があり、それによりトランザクションがブロックチェーンに確定されないことがあります。悪意のある振る舞いには、提案者がブロックから`Tx`を除外して検閲することや、バリデータがブロックに反対票を投じることなどがあります。
 
-At this point, the transaction lifecycle of a `Tx` is over: nodes have verified its validity,
-delivered it by executing its state changes, and committed those changes. The `Tx` itself,
-in `[]byte` form, is stored in a block and appended to the blockchain.
+この時点で、`Tx`のトランザクションライフサイクルは終了です。ノードはその妥当性を検証し、ステート変更を実行して配信し、それらの変更を確定しました。`Tx`自体は、`[]byte`形式でブロックに保存され、ブロックチェーンに追加されます。
