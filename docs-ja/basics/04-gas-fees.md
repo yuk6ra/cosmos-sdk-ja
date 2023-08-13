@@ -16,53 +16,53 @@ This document describes the default strategies to handle gas and fees within a C
 
 ## Introduction to `Gas` and `Fees`
 
-In the Cosmos SDK, `gas` is a special unit that is used to track the consumption of resources during execution. `gas` is typically consumed whenever read and writes are made to the store, but it can also be consumed if expensive computation needs to be done. It serves two main purposes:
+Cosmos SDKにおいて、`gas`は実行中のリソース消費を追跡するために使用される特別な単位です。通常、`gas`はストアへの読み書きが行われる際に消費されますが、高コストの計算が必要な場合にも消費されることがあります。`gas`には次の2つの主な目的があります：
 
-* Make sure blocks are not consuming too many resources and are finalized. This is implemented by default in the Cosmos SDK via the [block gas meter](#block-gas-meter).
-* Prevent spam and abuse from end-user. To this end, `gas` consumed during [`message`](../building-modules/02-messages-and-queries.md#messages) execution is typically priced, resulting in a `fee` (`fees = gas * gas-prices`). `fees` generally have to be paid by the sender of the `message`. Note that the Cosmos SDK does not enforce `gas` pricing by default, as there may be other ways to prevent spam (e.g. bandwidth schemes). Still, most applications implement `fee` mechanisms to prevent spam by using the [`AnteHandler`](#antehandler).
+* ブロックがあまりにも多くのリソースを消費せずに確定するようにすること。これはCosmos SDK内でデフォルトで実装されており、[ブロックのgasメーター](#block-gas-meter)を介して行われます。
+* エンドユーザーからのスパムや乱用を防ぐこと。このために、[`message`](../building-modules/02-messages-and-queries.md#messages)の実行中に消費される`gas`は通常価格が設定され、`fee` (`fees = gas * gas-prices`) に結びつきます。一般的に`fees`は`message`の送信者が支払う必要があります。Cosmos SDKはデフォルトでは`gas`の価格設定を強制しませんが、スパムを防ぐ他の方法（例：帯域幅スキーム）があるかもしれないためです。それにもかかわらず、ほとんどのアプリケーションはスパムを防ぐために[`AnteHandler`](#antehandler)を使用して`fee`メカニズムを実装しています。
 
 ## Gas Meter
 
-In the Cosmos SDK, `gas` is a simple alias for `uint64`, and is managed by an object called a _gas meter_. Gas meters implement the `GasMeter` interface
+Cosmos SDKでは、`gas`は単純な`uint64`の別名であり、_gas meter_ と呼ばれるオブジェクトによって管理されます。Gasメーターは`GasMeter`インターフェースを実装しています。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/store/types/gas.go#L40-L51
 ```
 
-where:
+以下に示す通り：
 
-* `GasConsumed()` returns the amount of gas that was consumed by the gas meter instance.
-* `GasConsumedToLimit()` returns the amount of gas that was consumed by gas meter instance, or the limit if it is reached.
-* `GasRemaining()` returns the gas left in the GasMeter.
-* `Limit()` returns the limit of the gas meter instance. `0` if the gas meter is infinite.
-* `ConsumeGas(amount Gas, descriptor string)` consumes the amount of `gas` provided. If the `gas` overflows, it panics with the `descriptor` message. If the gas meter is not infinite, it panics if `gas` consumed goes above the limit.
-* `RefundGas()` deducts the given amount from the gas consumed. This functionality enables refunding gas to the transaction or block gas pools so that EVM-compatible chains can fully support the go-ethereum StateDB interface.
-* `IsPastLimit()` returns `true` if the amount of gas consumed by the gas meter instance is strictly above the limit, `false` otherwise.
-* `IsOutOfGas()` returns `true` if the amount of gas consumed by the gas meter instance is above or equal to the limit, `false` otherwise.
+* `GasConsumed()`は、ガスメーターインスタンスによって消費されたガス量を返します。
+* `GasConsumedToLimit()`は、ガスメーターインスタンスによって消費されたガス量、または制限に達した場合はその制限を返します。
+* `GasRemaining()`は、ガスメーターに残っているガスを返します。
+* `Limit()`は、ガスメーターインスタンスの制限を返します。ガスメーターが無限の場合は`0`です。
+* `ConsumeGas(amount Gas, descriptor string)`は提供された`gas`の量を消費します。`gas`がオーバーフローすると、`descriptor`メッセージと共にパニックが発生します。ガスメーターが無限でない場合、消費される`gas`が制限を超えるとパニックが発生します。
+* `RefundGas()`は、指定された量を消費されたガスから差し引きます。この機能を使用すると、EVM互換のチェーンがgo-ethereumのStateDBインターフェースを完全にサポートできるよう、トランザクションやブロックのガスプールにガスを返金することができます。
+* `IsPastLimit()`は、ガスメーターインスタンスによって消費されたガス量が制限を厳密に超えている場合は`true`を、そうでない場合は`false`を返します。
+* `IsOutOfGas()`は、ガスメーターインスタンスによって消費されたガス量が制限を上回るか、または制限と等しい場合は`true`を、そうでない場合は`false`を返します。
 
-The gas meter is generally held in [`ctx`](../core/02-context.md), and consuming gas is done with the following pattern:
+ガスメーターは通常、[`ctx`](../core/02-context.md)に保持され、ガスの消費は次のパターンで行われます：
 
 ```go
 ctx.GasMeter().ConsumeGas(amount, "description")
 ```
 
-By default, the Cosmos SDK makes use of two different gas meters, the [main gas meter](#main-gas-metter) and the [block gas meter](#block-gas-meter).
+デフォルトでは、Cosmos SDKは2つの異なるガスメーター、[メインガスメーター](#main-gas-metter)と[ブロックガスメーター](#block-gas-meter)を使用します。
 
 ### Main Gas Meter
 
-`ctx.GasMeter()` is the main gas meter of the application. The main gas meter is initialized in `FinalizeBlock` via `setFinalizeBlockState`, and then tracks gas consumption during execution sequences that lead to state-transitions, i.e. those originally triggered by [`FinalizeBlock`](../core/00-baseapp.md#finalizeblock). At the beginning of each transaction execution, the main gas meter **must be set to 0** in the [`AnteHandler`](#antehandler), so that it can track gas consumption per-transaction.
+`ctx.GasMeter()`はアプリケーションのメインガスメーターです。メインガスメーターは`FinalizeBlock`内で`setFinalizeBlockState`を介して初期化され、その後、ステート遷移につながる実行シーケンス中のガス消費を追跡します。つまり、元々[`FinalizeBlock`](../core/00-baseapp.md#finalizeblock)によってトリガーされたものです。各トランザクションの実行開始時に、メインガスメーターは**0に設定されなければなりません**。これは[`AnteHandler`](#antehandler)内で行われ、トランザクションごとのガス消費を追跡するためです。
 
-Gas consumption can be done manually, generally by the module developer in the [`BeginBlocker`, `EndBlocker`](../building-modules/05-beginblock-endblock.md) or [`Msg` service](../building-modules/03-msg-services.md), but most of the time it is done automatically whenever there is a read or write to the store. This automatic gas consumption logic is implemented in a special store called [`GasKv`](../core/04-store.md#gaskv-store).
+ガス消費は、一般的にはモジュール開発者によって[`BeginBlocker`、`EndBlocker`](../building-modules/05-beginblock-endblock.md)または[`Msg`サービス](../building-modules/03-msg-services.md)内で手動で行われることがありますが、ほとんどの場合、ストアへの読み込みまたは書き込みがあるたびに自動的に行われます。この自動的なガス消費のロジックは、[`GasKv`](../core/04-store.md#gaskv-store)と呼ばれる特別なストアに実装されています。
 
 ### Block Gas Meter
 
-`ctx.BlockGasMeter()` is the gas meter used to track gas consumption per block and make sure it does not go above a certain limit. A new instance of the `BlockGasMeter` is created each time [`FinalizeBlock`](../core/00-baseapp.md#finalizeblock) is called. The `BlockGasMeter` is finite, and the limit of gas per block is defined in the application's consensus parameters. By default, Cosmos SDK applications use the default consensus parameters provided by CometBFT:
+`ctx.BlockGasMeter()`は、ガス消費をブロックごとに追跡し、特定の制限を超えないようにするためのガスメーターです。`FinalizeBlock`が呼び出されるたびに、`BlockGasMeter`の新しいインスタンスが作成されます。`BlockGasMeter`は有限であり、ブロックごとのガス制限はアプリケーションのコンセンサスパラメーターで定義されます。デフォルトでは、Cosmos SDKアプリケーションはCometBFTによって提供されるデフォルトのコンセンサスパラメーターを使用します。
 
 ```go reference
 https://github.com/cometbft/cometbft/blob/v0.37.0/types/params.go#L66-L105
 ```
 
-When a new [transaction](../core/01-transactions.md) is being processed via `FinalizeBlock`, the current value of `BlockGasMeter` is checked to see if it is above the limit. If it is, the transaction fails and returned to the consensus engine as a failed transaction. This can happen even with the first transaction in a block, as `FinalizeBlock` itself can consume gas. If not, the transaction is processed normally. At the end of `FinalizeBlock`, the gas tracked by `ctx.BlockGasMeter()` is increased by the amount consumed to process the transaction:
+新しい[トランザクション](../core/01-transactions.md)が`FinalizeBlock`を介して処理される際に、`BlockGasMeter`の現在の値が制限を超えているかどうかをチェックします。制限を超えている場合、トランザクションは失敗し、失敗したトランザクションとしてコンセンサスエンジンに返されます。これは、ブロック内の最初のトランザクションでも発生する可能性があります。なぜなら、`FinalizeBlock`自体がガスを消費するからです。制限を超えていない場合、トランザクションは通常通り処理されます。`FinalizeBlock`の最後で、トランザクションの処理に消費されたガス量を`ctx.BlockGasMeter()`が追跡します。
 
 ```go
 ctx.BlockGasMeter().ConsumeGas(
@@ -73,25 +73,25 @@ ctx.BlockGasMeter().ConsumeGas(
 
 ## AnteHandler
 
-The `AnteHandler` is run for every transaction during `CheckTx` and `FinalizeBlock`, before a Protobuf `Msg` service method for each `sdk.Msg` in the transaction. 
+`AnteHandler`は、`CheckTx`および`FinalizeBlock`の間にある各トランザクションごとに実行され、トランザクション内の各`sdk.Msg`に対してProtobufの`Msg`サービスメソッドが実行される前に実行されます。
 
-The anteHandler is not implemented in the core Cosmos SDK but in a module. That said, most applications today use the default implementation defined in the [`auth` module](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth). Here is what the `anteHandler` is intended to do in a normal Cosmos SDK application:
+`anteHandler`は、Core Cosmos SDKではなくモジュールに実装されています。ただし、ほとんどのアプリケーションは、現在は[`auth`モジュール](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth)で定義されているデフォルトの実装を使用しています。通常のCosmos SDKアプリケーションで`anteHandler`が行うことは次のとおりです。
 
-* Verify that the transactions are of the correct type. Transaction types are defined in the module that implements the `anteHandler`, and they follow the transaction interface:
+* トランザクションが正しいタイプであることを確認する。トランザクションタイプは、`anteHandler`を実装するモジュールで定義され、トランザクションインターフェースに従います：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/tx_msg.go#L51-L56
 ```
 
-  This enables developers to play with various types for the transaction of their application. In the default `auth` module, the default transaction type is `Tx`: 
+これにより、開発者はアプリケーションのトランザクションにさまざまなタイプを使用できます。デフォルトの`auth`モジュールでは、デフォルトのトランザクションタイプは`Tx`です：
 
 ```protobuf reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/tx.proto#L14-L27
 ```
 
-* Verify signatures for each [`message`](../building-modules/02-messages-and-queries.md#messages) contained in the transaction. Each `message` should be signed by one or multiple sender(s), and these signatures must be verified in the `anteHandler`.
-* During `CheckTx`, verify that the gas prices provided with the transaction is greater than the local `min-gas-prices` (as a reminder, gas-prices can be deducted from the following equation: `fees = gas * gas-prices`). `min-gas-prices` is a parameter local to each full-node and used during `CheckTx` to discard transactions that do not provide a minimum amount of fees. This ensures that the mempool cannot be spammed with garbage transactions.
-* Verify that the sender of the transaction has enough funds to cover for the `fees`. When the end-user generates a transaction, they must indicate 2 of the 3 following parameters (the third one being implicit): `fees`, `gas` and `gas-prices`. This signals how much they are willing to pay for nodes to execute their transaction. The provided `gas` value is stored in a parameter called `GasWanted` for later use.
-* Set `newCtx.GasMeter` to 0, with a limit of `GasWanted`. **This step is crucial**, as it not only makes sure the transaction cannot consume infinite gas, but also that `ctx.GasMeter` is reset in-between each transaction (`ctx` is set to `newCtx` after `anteHandler` is run, and the `anteHandler` is run each time a transactions executes).
+* トランザクション内の各[`message`](../building-modules/02-messages-and-queries.md#messages)に対して署名を検証します。各`message`は1人以上の送信者によって署名され、これらの署名は`anteHandler`で検証される必要があります。
+* `CheckTx`中に、トランザクションとともに提供されたガス価格がローカルの`min-gas-prices`よりも大きいことを検証します（ガス価格は次の式から差し引かれることを思い出してください：`fees = gas * gas-prices`）。 `min-gas-prices`は各フルノード固有のパラメーターであり、`CheckTx`中に使用され、最小の手数料を提供しないトランザクションを破棄します。これにより、メンプールにゴミトランザクションがスパムされることはありません。
+* トランザクションの送信者が`fees`をカバーするための十分な資金を持っていることを検証します。エンドユーザーがトランザクションを生成する際、次の3つのパラメーターのうち2つを指定する必要があります（3つ目は暗黙的なものです）：`fees`、`gas`、`gas-prices`。これにより、ノードにトランザクションを実行するための支払いをどれだけ行うかが示されます。提供された`gas`の値は、後で使用するために`GasWanted`という名前のパラメーターに格納されます。
+* `newCtx.GasMeter`を0に設定し、制限を`GasWanted`に設定します。 **このステップは非常に重要**です。これにより、トランザクションが無限のガスを消費することはできないだけでなく、`ctx.GasMeter`が各トランザクションの間にリセットされることも確認されます（`anteHandler`が実行された後に`ctx`が`newCtx`に設定され、`anteHandler`はトランザクションが実行されるたびに実行されます）。
 
-As explained above, the `anteHandler` returns a maximum limit of `gas` the transaction can consume during execution called `GasWanted`. The actual amount consumed in the end is denominated `GasUsed`, and we must therefore have `GasUsed =< GasWanted`. Both `GasWanted` and `GasUsed` are relayed to the underlying consensus engine when [`FinalizeBlock`](../core/00-baseapp.md#finalizeblock) returns.
+上記で説明したように、`anteHandler`は実行中にトランザクションが消費できる最大の`gas`制限である`GasWanted`を返します。最終的に消費される実際の量は`GasUsed`と呼ばれ、したがって`GasUsed =< GasWanted`でなければなりません。`GasWanted`と`GasUsed`の両方は、[`FinalizeBlock`](../core/00-baseapp.md#finalizeblock)が戻るときに基本となるコンセンサスエンジンに中継されます。
