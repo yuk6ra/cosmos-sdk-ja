@@ -3,35 +3,35 @@ title: Cosmos SDK Documentation
 sidebar_position: 0
 ---
 
-Cosmos SDK is the world’s most popular framework for building application-specific blockchains.
+Cosmos SDKは、アプリケーション固有のブロックチェーンを構築するための世界で最も人気のあるフレームワークです。
 
 ## Getting Started
 
-Read all about the SDK or dive straight into the code with tutorials.
+SDKについての情報をすべて読むか、チュートリアルで直接コードにダイブすることができます。
 
-* [**Introductions to the Cosmos SDK**](./intro/00-overview.md) - Learn about all the parts of the Cosmos SDK.
-* [**SDK Tutorials**](https://tutorials.cosmos.network) - Build a complete blockchain application from scratch.
+* [**Introductions to the Cosmos SDK**](./intro/00-overview.md) - Cosmos SDKのすべての部分について学ぶことができます。
+* [**SDK Tutorials**](https://tutorials.cosmos.network) - スクラッチから完全なブロックチェーンアプリケーションを構築することができます。
 
 ## Explore the SDK
 
-Get familiar with the SDK and explore its main concepts.
+SDKに慣れ、主要なコンセプトを探索してみましょう。
 
-* [**Introduction**](./intro/00-overview.md) - High-level overview of the Cosmos SDK.
-* [**Basics**](./basics/00-app-anatomy.md) - Anatomy of a blockchain, transaction lifecycle, accounts and more.
-* [**Core Concepts**](./core/00-baseapp.md) -  Read about the core concepts like baseapp, the store, or the server.
-* [**Building Modules**](./building-modules/01-intro.md) -  Discover how to build modules for the Cosmos SDK.
-* [**Running a Node**](./run-node/00-keyring.md) - Running and interacting with nodes using the CLI and API.
-* [**Modules**](./modules/README.md) - Explore existing modules to build your application with.
+* [**Introduction**](./intro/00-overview.md) - Cosmos SDKの高レベルの概要です。
+* [**Basics**](./basics/00-app-anatomy.md) - ブロックチェーンの構造、トランザクションライフサイクル、アカウントなどについての詳細です。
+* [**Core Concepts**](./core/00-baseapp.md) - baseapp、ストア、サーバーなどのコアコンセプトについて詳しく説明します。
+* [**Building Modules**](./building-modules/01-intro.md) - Cosmos SDK用のモジュールの構築方法について学びます。
+* [**Running a Node**](./run-node/00-keyring.md) - CLIとAPIを使用してノードを実行し、ノードと対話する方法について説明します。
+* [**Modules**](./modules/README.md) - 既存のモジュールを探索して、アプリケーションの構築に活用します。
 
 ## Explore the Stack
 
-Check out the docs for the various parts of the Cosmos stack.
+Cosmosスタックのさまざまな部分に関するドキュメントをチェックしてみましょう。
 
-* [**Cosmos Hub**](https://hub.cosmos.network) - The first of thousands of interconnected blockchains on the Cosmos Network.
-* [**CometBFT**](https://docs.cometbft.com) - The leading BFT engine for building blockchains, powering Cosmos SDK.
+* [**Cosmos Hub**](https://hub.cosmos.network) - Cosmos Network上の数千もの相互接続されたブロックチェーンの最初のものです。
+* [**CometBFT**](https://docs.cometbft.com) - ブロックチェーン構築のためのリーディングBFTエンジンで、Cosmos SDKを活用しています。
 
 ## Help & Support
 
-* [**GitHub Discussions**](https://github.com/orgs/cosmos/discussions) - Ask questions and discuss SDK development on GitHub.
-* [**Discord**](https://discord.gg/cosmosnetwork) - Chat with Cosmos developers on Discord.
-* [**Found an issue?**](https://github.com/cosmos/cosmos-sdk/edit/main/docs/docs/README.md) - Help us improve this page by suggesting edits on GitHub.
+* [**GitHub Discussions**](https://github.com/orgs/cosmos/discussions) - GitHubでSDKの開発に関する質問や議論ができます。
+* [**Discord**](https://discord.gg/cosmosnetwork) - DiscordでCosmosの開発者とチャットすることができます。
+* [**Found an issue?**](https://github.com/cosmos/cosmos-sdk/edit/main/docs/docs/README.md) - GitHub上で編集提案をして、このページを改善する手助けをしてください。
