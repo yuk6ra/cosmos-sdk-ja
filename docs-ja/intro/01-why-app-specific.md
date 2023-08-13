@@ -5,12 +5,13 @@ sidebar_position: 1
 # Application-Specific Blockchains
 
 :::note Synopsis
-This document explains what application-specific blockchains are, and why developers would want to build one as opposed to writing Smart Contracts.
+このドキュメントでは、アプリケーション特化型ブロックチェーンとは何か、なぜ開発者がスマートコントラクトを書く代わりにそれを構築することを選ぶ必要があるのかについて説明します。
 :::
 
 ## What are application-specific blockchains
 
-Application-specific blockchains are blockchains customized to operate a single application. Instead of building a decentralized application on top of an underlying blockchain like Ethereum, developers build their own blockchain from the ground up. This means building a full-node client, a light-client, and all the necessary interfaces (CLI, REST, ...) to interact with the nodes.
+アプリケーション特化型ブロックチェーンとは、単一のアプリケーションを運用するためにカスタマイズされたブロックチェーンです。Ethereumのような基盤ブロックチェーンの上に分散アプリケーションを構築する代わりに、開発者はゼロから独自のブロックチェーンを構築します。これにはフルノードクライアント、ライトクライアント、およびノードと対話するためのすべての必要なインターフェース（CLI、RESTなど）の構築が含まれます。
+
 
 ```text
                 ^  +-------------------------------+  ^
@@ -30,50 +31,53 @@ Blockchain node |  |           Consensus           |  |
 
 ## What are the shortcomings of Smart Contracts
 
-Virtual-machine blockchains like Ethereum addressed the demand for more programmability back in 2014. At the time, the options available for building decentralized applications were quite limited. Most developers would build on top of the complex and limited Bitcoin scripting language, or fork the Bitcoin codebase which was hard to work with and customize.
 
-Virtual-machine blockchains came in with a new value proposition. Their state-machine incorporates a virtual-machine that is able to interpret turing-complete programs called Smart Contracts. These Smart Contracts are very good for use cases like one-time events (e.g. ICOs), but they can fall short for building complex decentralized platforms. Here is why:
+2014年にイーサリアムなどの仮想マシン型ブロックチェーンは、より高いプログラム可能性への需要に対応しました。当時、分散アプリケーションを構築するための選択肢は非常に限られていました。多くの開発者は、複雑で限定されたBitcoinスクリプト言語の上に構築するか、Bitcoinコードベースをフォークしてカスタマイズする方法を選ぶことが一般的でした。
 
-* Smart Contracts are generally developed with specific programming languages that can be interpreted by the underlying virtual-machine. These programming languages are often immature and inherently limited by the constraints of the virtual-machine itself. For example, the Ethereum Virtual Machine does not allow developers to implement automatic execution of code. Developers are also limited to the account-based system of the EVM, and they can only choose from a limited set of functions for their cryptographic operations. These are examples, but they hint at the lack of **flexibility** that a smart contract environment often entails.
-* Smart Contracts are all run by the same virtual machine. This means that they compete for resources, which can severely restrain **performance**. And even if the state-machine were to be split in multiple subsets (e.g. via sharding), Smart Contracts would still need to be interpreted by a virtual machine, which would limit performance compared to a native application implemented at state-machine level (our benchmarks show an improvement on the order of 10x in performance when the virtual-machine is removed).
-* Another issue with the fact that Smart Contracts share the same underlying environment is the resulting limitation in **sovereignty**. A decentralized application is an ecosystem that involves multiple players. If the application is built on a general-purpose virtual-machine blockchain, stakeholders have very limited sovereignty over their application, and are ultimately superseded by the governance of the underlying blockchain. If there is a bug in the application, very little can be done about it.
+仮想マシン型ブロックチェーンは新しい価値提供をもたらしました。そのステートマシンは、スマートコントラクトと呼ばれるチューリング完全プログラムを解釈できる仮想マシンを組み込んでいます。これらのスマートコントラクトは、一回限りのイベント（例：ICO）などのユースケースには非常に優れていますが、複雑な分散型プラットフォームを構築する際には不足することがあります。以下にその理由を示します：
 
-Application-Specific Blockchains are designed to address these shortcomings.
+* スマートコントラクトは、基盤となる仮想マシンによって解釈できる特定のプログラミング言語で一般的に開発されます。これらのプログラミング言語は、しばしば未熟であり、仮想マシンそのものの制約により本質的に制限されています。例えば、イーサリアム仮想マシンではコードの自動実行を実装できません。また、EVMのアカウントベースのシステムに制限され、暗号操作には限られた関数のセットから選択するしかありません。これらは例ですが、スマートコントラクト環境が持つ柔軟性の不足を示しています。
+* スマートコントラクトはすべて同じ仮想マシンで実行されます。これにより、リソースを競合することになり、パフォーマンスが制約される可能性があります。また、ステートマシンを複数のサブセット（例：シャーディングを介して）に分割したとしても、スマートコントラクトは依然として仮想マシンによって解釈される必要があり、ステートマシンレベルで実装されたネイティブアプリケーションと比較してパフォーマンスが制限されます（仮想マシンを削除した場合、当社のベンチマークでは10倍の性能向上が示されています）。
+* スマートコントラクトが同じ基盤環境を共有する事実に関連する別の問題は、主権の制約です。分散型アプリケーションは複数のプレイヤーを含むエコシステムです。アプリケーションが汎用の仮想マシン型ブロックチェーン上に構築される場合、ステークホルダーはアプリケーションに対する主権を非常に制限され、基盤ブロックチェーンのガバナンスによって最終的には上書きされることになります。アプリケーションにバグがある場合、ほとんど対処できません。
+
+アプリケーション特化型ブロックチェーンは、これらの短所に対処するために設計されています。
 
 ## Application-Specific Blockchains Benefits
 
 ### Flexibility
 
-Application-specific blockchains give maximum flexibility to developers:
+アプリケーション特化型ブロックチェーンは、開発者に最大限の柔軟性を提供します：
 
-* In Cosmos blockchains, the state-machine is typically connected to the underlying consensus engine via an interface called the [ABCI](https://docs.cometbft.com/v0.37/spec/abci/). This interface can be wrapped in any programming language, meaning developers can build their state-machine in the programming language of their choice.
+* Cosmosブロックチェーンでは、ステートマシンは通常、[ABCI](https://docs.cometbft.com/v0.37/spec/abci/)というインターフェースを介して基盤のコンセンサスエンジンに接続されます。このインターフェースは任意のプログラミング言語でラップすることができ、開発者は選択したプログラミング言語でステートマシンを構築できます。
 
-* Developers can choose among multiple frameworks to build their state-machine. The most widely used today is the Cosmos SDK, but others exist (e.g. [Lotion](https://github.com/nomic-io/lotion), [Weave](https://github.com/iov-one/weave), ...). Typically the choice will be made based on the programming language they want to use (Cosmos SDK and Weave are in Golang, Lotion is in Javascript, ...).
-* The ABCI also allows developers to swap the consensus engine of their application-specific blockchain. Today, only CometBFT is production-ready, but in the future other consensus engines are expected to emerge.
-* Even when they settle for a framework and consensus engine, developers still have the freedom to tweak them if they don't perfectly match their requirements in their pristine forms.
-* Developers are free to explore the full spectrum of tradeoffs (e.g. number of validators vs transaction throughput, safety vs availability in asynchrony, ...) and design choices (DB or IAVL tree for storage, UTXO or account model, ...).
-* Developers can implement automatic execution of code. In the Cosmos SDK, logic can be automatically triggered at the beginning and the end of each block. They are also free to choose the cryptographic library used in their application, as opposed to being constrained by what is made available by the underlying environment in the case of virtual-machine blockchains.
+* 開発者はステートマシンを構築するために複数のフレームワークから選択できます。今日最も広く使用されているのはCosmos SDKですが、他にも（例：[Lotion](https://github.com/nomic-io/lotion)、[Weave](https://github.com/iov-one/weave)など）が存在します。一般的には、使用したいプログラミング言語に基づいて選択されます（Cosmos SDKとWeaveはGolangで、LotionはJavaScriptです）。
+* ABCIはまた、アプリケーション特化型ブロックチェーンのコンセンサスエンジンを交換することを開発者に許可します。現在はCometBFTのみが本番環境で利用可能ですが、将来的には他のコンセンサスエンジンも登場する予定です。
+* フレームワークとコンセンサスエンジンを選択しても、開発者はこれらが要件に完全に一致しない場合でも、それらを調整する自由があります。
+* 開発者はトレードオフ（バリデータの数対トランザクションのスループット、非同期性における安全性対可用性など）やデザインの選択肢（DBまたはIAVLツリーによるストレージ、UTXOまたはアカウントモデルなど）の全スペクトラムを自由に探求できます。
+* 開発者はコードの自動実行を実装できます。Cosmos SDKでは、ロジックをブロックの開始と終了時に自動的にトリガーできます。仮想マシン型ブロックチェーンの場合、基盤環境で利用可能なものに制約されるのではなく、アプリケーションで使用する暗号ライブラリを自由に選択できます。
 
-The list above contains a few examples that show how much flexibility application-specific blockchains give to developers. The goal of Cosmos and the Cosmos SDK is to make developer tooling as generic and composable as possible, so that each part of the stack can be forked, tweaked and improved without losing compatibility. As the community grows, more alternatives for each of the core building blocks will emerge, giving more options to developers.
+上記のリストには、アプリケーション特化型ブロックチェーンが開発者に与える柔軟性の多くの例が含まれています。CosmosとCosmos SDKの目標は、スタックの各部分を互換性を失うことなくフォークし、調整し、改善できるようにすることです。コミュニティが成長するにつれて、各コアビルディングブロックのさらなる選択肢が現れ、開発者により多くの選択肢が提供されるでしょう。
 
 ### Performance
 
-decentralized applications built with Smart Contracts are inherently capped in performance by the underlying environment. For a decentralized application to optimise performance, it needs to be built as an application-specific blockchain. Next are some of the benefits an application-specific blockchain brings in terms of performance:
+スマートコントラクトで構築された分散型アプリケーションは、基盤環境によってパフォーマンスが制限されます。分散型アプリケーションがパフォーマンスを最適化するには、アプリケーション特化型ブロックチェーンとして構築する必要があります。次に、アプリケーション特化型ブロックチェーンのパフォーマンスにもたらすいくつかの利点を示します：
 
-* Developers of application-specific blockchains can choose to operate with a novel consensus engine such as CometBFT BFT. Compared to Proof-of-Work (used by most virtual-machine blockchains today), it offers significant gains in throughput.
-* An application-specific blockchain only operates a single application, so that the application does not compete with others for computation and storage. This is the opposite of most non-sharded virtual-machine blockchains today, where smart contracts all compete for computation and storage.
-* Even if a virtual-machine blockchain offered application-based sharding coupled with an efficient consensus algorithm, performance would still be limited by the virtual-machine itself. The real throughput bottleneck is the state-machine, and requiring transactions to be interpreted by a virtual-machine significantly increases the computational complexity of processing them.
+* アプリケーション特化型ブロックチェーンの開発者は、CometBFT BFTなどの革新的なコンセンサスエンジンを選択できます。ほとんどの仮想マシン型ブロックチェーンで使用されるProof-of-Workに比べて、大幅なスループットの向上が見込まれます。
+* アプリケーション特化型ブロックチェーンは単一のアプリケーションのみを運用するため、アプリケーションは他のアプリケーションと計算とストレージの競合がありません。これは、スマートコントラクトが計算とストレージの競合をする多くの非シャーディング仮想マシン型ブロックチェーンの逆です。
+* 仮想マシン型ブロックチェーンがアプリケーションベースのシャーディングを提供し、効率的なコンセンサスアルゴリズムと組み合わせていたとしても、パフォーマンスは仮想マシン自体によって制限されます。実際のスループットのボトルネックはステートマシンであり、トランザクションを仮想マシンで解釈することによって処理の計算複雑性が大幅に増加します。
 
 ### Security
 
-Security is hard to quantify, and greatly varies from platform to platform. That said here are some important benefits an application-specific blockchain can bring in terms of security:
+セキュリティは定量化が難しく、プラットフォームによって大きく異なります。ただし、アプリケーション特化型ブロックチェーンがセキュリティにもたらす重要な利点がいくつかあります：
 
-* Developers can choose proven programming languages like Go when building their application-specific blockchains, as opposed to smart contract programming languages that are often more immature.
-* Developers are not constrained by the cryptographic functions made available by the underlying virtual-machines. They can use their own custom cryptography, and rely on well-audited crypto libraries.
-* Developers do not have to worry about potential bugs or exploitable mechanisms in the underlying virtual-machine, making it easier to reason about the security of the application.
+* 開発者は、未熟なことが多いスマートコントラクトプログラミング言語とは異なり、アプリケーション特化型ブロックチェーンを構築する際にGoなどの信頼性の高いプログラミング言語を選択できます。
+* 開発者は、基盤の仮想マシンで利用可能な暗号機能に制約されることはありません。独自のカスタム暗号を使用し、よく監査された暗号ライブラリに頼ることができます。
+* 開発者は、基盤の仮想マシンにおける潜在的なバグや悪用可能なメカニズムを心配する必要がありません。これにより、アプリケーションのセキュリティについて理解しやすくなります。
 
 ### Sovereignty
 
-One of the major benefits of application-specific blockchains is sovereignty. A decentralized application is an ecosystem that involves many actors: users, developers, third-party services, and more. When developers build on virtual-machine blockchain where many decentralized applications coexist, the community of the application is different than the community of the underlying blockchain, and the latter supersedes the former in the governance process. If there is a bug or if a new feature is needed, stakeholders of the application have very little leeway to upgrade the code. If the community of the underlying blockchain refuses to act, nothing can happen.
+アプリケーション特化型ブロックチェーンの主要な利点の1つは主権です。分散型アプリケーションは多くのアクター（ユーザー、開発者、サードパーティサービスなど）を含むエコシステムです。開発者が多くの分散型アプリケーションが共存する仮想マシン型ブロックチェーン上に構築する場合、アプリケーションのコミュニティは基盤ブロックチェーンのコミュニティとは異なり、後者がガバナンスプロセスで前者を上回ります。バグがある場合や新機能が必要な場合、アプリケーションのステークホルダーはコードをアップグレードする余地がほとんどありません。基盤ブロックチェーンのコミュニティが動かない場合、何もできない状態になります。
 
-The fundamental issue here is that the governance of the application and the governance of the network are not aligned. This issue is solved by application-specific blockchains. Because application-specific blockchains specialize to operate a single application, stakeholders of the application have full control over the entire chain. This ensures that the community will not be stuck if a bug is discovered, and that it has the freedom to choose how it is going to evolve.
+根本的な問題は、アプリケーションのガバナンスとネットワークのガバナンスが一致していないことです。この問題は、アプリケーション特化型ブロックチェーンによって解決されます。アプリケーション特化型ブロックチェーンは、単一のアプリケーションを運用するために特化しているため、アプリケーションのステークホルダーは全体のチェーンに対して完全な制御権を持っています。これにより、バグが発見された場合にコミュニティが行き詰まることがなく、どのように進化するかを選択する自由が得られます。
+
+
