@@ -17,15 +17,15 @@ This document describes `BaseApp`, the abstraction that implements the core func
 
 ## Introduction
 
-`BaseApp` is a base type that implements the core of a Cosmos SDK application, namely:
+`BaseApp`は、Cosmos SDKアプリケーションのコアを実装するベースタイプです。具体的には以下の機能を備えています：
 
-* The [Application Blockchain Interface](#main-abci-messages), for the state-machine to communicate with the underlying consensus engine (e.g. CometBFT).
-* [Service Routers](#service-routers), to route messages and queries to the appropriate module.
-* Different [states](#state-updates), as the state-machine can have different volatile states updated based on the ABCI message received.
+* [アプリケーション・ブロックチェーン・インターフェース](#main-abci-messages)：ステートマシンが基盤となるコンセンサスエンジン（例：CometBFT）と通信するためのインターフェースです。
+* [サービス・ルーター](#service-routers)：メッセージやクエリを適切なモジュールにルーティングするための仕組みです。
+* [ステートの更新](#state-updates)：受信したABCIメッセージに基づいて異なるボラティルなステートを更新する機能が含まれています。
 
-The goal of `BaseApp` is to provide the fundamental layer of a Cosmos SDK application
-that developers can easily extend to build their own custom application. Usually,
-developers will create a custom type for their application, like so:
+`BaseApp`の目的は、開発者が独自のカスタムアプリケーションを簡単に構築できるように、Cosmos SDKアプリケーションの基本的なレイヤーを提供することです。通常、開発者は次のようにしてアプリケーションのカスタム型を作成します：
+
+
 
 ```go
 type App struct {
@@ -40,72 +40,57 @@ type App struct {
 }
 ```
 
-Extending the application with `BaseApp` gives the former access to all of `BaseApp`'s methods.
-This allows developers to compose their custom application with the modules they want, while not
-having to concern themselves with the hard work of implementing the ABCI, the service routers and state
-management logic.
+`BaseApp`を使用してアプリケーションを拡張することで、前者は`BaseApp`のすべてのメソッドにアクセスできるようになります。
+これにより、開発者は必要なモジュールを使用して独自のアプリケーションを構築できますが、ABCIの実装、サービス・ルーター、およびステート管理ロジックを実装する手間をかける必要はありません。
 
 ## Type Definition
 
-The `BaseApp` type holds many important parameters for any Cosmos SDK based application.
+`BaseApp`タイプは、Cosmos SDKベースのアプリケーションの多くの重要なパラメータを保持しています。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#L58-L182
 ```
 
-Let us go through the most important components.
+最も重要なコンポーネントを見ていきましょう。
 
-> **Note**: Not all parameters are described, only the most important ones. Refer to the
-> type definition for the full list.
+> **注意**: すべてのパラメータが説明されているわけではありません。詳細な一覧については、型定義を参照してください。
 
-First, the important parameters that are initialized during the bootstrapping of the application:
+まず、アプリケーションの起動時に初期化される重要なパラメータ：
 
-* [`CommitMultiStore`](./04-store.md#commitmultistore): This is the main store of the application,
-  which holds the canonical state that is committed at the [end of each block](#commit). This store
-  is **not** cached, meaning it is not used to update the application's volatile (un-committed) states.
-  The `CommitMultiStore` is a multi-store, meaning a store of stores. Each module of the application
-  uses one or multiple `KVStores` in the multi-store to persist their subset of the state.
-* Database: The `db` is used by the `CommitMultiStore` to handle data persistence.
-* [`Msg` Service Router](#msg-service-router): The `msgServiceRouter` facilitates the routing of `sdk.Msg` requests to the appropriate
-  module `Msg` service for processing. Here a `sdk.Msg` refers to the transaction component that needs to be
-  processed by a service in order to update the application state, and not to ABCI message which implements
-  the interface between the application and the underlying consensus engine.
-* [gRPC Query Router](#grpc-query-router): The `grpcQueryRouter` facilitates the routing of gRPC queries to the
-  appropriate module for it to be processed. These queries are not ABCI messages themselves, but they
-  are relayed to the relevant module's gRPC `Query` service.
-* [`TxDecoder`](https://pkg.go.dev/github.com/cosmos/cosmos-sdk/types#TxDecoder): It is used to decode
-  raw transaction bytes relayed by the underlying CometBFT engine.
-* [`AnteHandler`](#antehandler): This handler is used to handle signature verification, fee payment,
-  and other pre-message execution checks when a transaction is received. It's executed during
-  [`CheckTx/RecheckTx`](#checktx) and [`FinalizeBlock`](#finalizeblock).
-* [`InitChainer`](../basics/00-app-anatomy.md#initchainer),
-  [`BeginBlocker` and `EndBlocker`](../basics/00-app-anatomy.md#beginblocker-and-endblocker): These are
-  the functions executed when the application receives the `InitChain` and `FinalizeBlock`
-  ABCI messages from the underlying CometBFT engine.
+* [`CommitMultiStore`](./04-store.md#commitmultistore): これはアプリケーションのメインストアで、
+  ブロックの[終了時](#commit)にコミットされる正準なステートを保持します。このストアは**キャッシュされていません**。
+  つまり、アプリケーションのボラティル（未コミットの）ステートの更新には使用されません。
+  `CommitMultiStore`はマルチストアであり、ストアの集合です。アプリケーションの各モジュールは、
+  マルチストア内の1つまたは複数の`KVStore`を使用して、その状態のサブセットを永続化します。
+* データベース：`db`はデータの永続化を処理するために`CommitMultiStore`によって使用されます。
+* [`Msg` サービスルーター](#msg-service-router)：`msgServiceRouter`は、`sdk.Msg`リクエストを適切な
+  モジュール`Msg`サービスにルーティングして処理するのを支援します。ここでの`sdk.Msg`は、
+  アプリケーションの状態を更新するためにサービスによって処理されるトランザクションコンポーネントを指し、
+  アプリケーションと基盤となるコンセンサスエンジン間のインターフェースであるABCIメッセージではありません。
+* [gRPC クエリルーター](#grpc-query-router)：`grpcQueryRouter`は、gRPCクエリを適切なモジュールに
+  ルーティングして処理するのを支援します。これらのクエリ自体はABCIメッセージではありませんが、
+  関連するモジュールのgRPC `Query`サービスにリレーされます。
+* [`TxDecoder`](https://pkg.go.dev/github.com/cosmos/cosmos-sdk/types#TxDecoder)：基盤となるCometBFTエンジンに
+  よってリレーされる生のトランザクションバイトをデコードするために使用されます。
+* [`AnteHandler`](#antehandler)：このハンドラは、トランザクションが受信された際に署名の検証、
+  手数料支払い、および他のメッセージの実行前チェックを行うために使用されます。これは[`CheckTx/RecheckTx`](#checktx)および
+  [`FinalizeBlock`](#finalizeblock)の実行中に実行されます。
+* [`InitChainer`](../basics/00-app-anatomy.md#initchainer)、
+  [`BeginBlocker`と`EndBlocker`](../basics/00-app-anatomy.md#beginblocker-and-endblocker)：これらは
+  アプリケーションが基盤となるCometBFTエンジンから`InitChain`および`FinalizeBlock`のABCIメッセージを受信したときに実行される関数です。
 
-Then, parameters used to define [volatile states](#state-updates) (i.e. cached states):
+次に、[ボラティルステート](#state-updates)（キャッシュされたステート）を定義するために使用されるパラメータ：
 
-* `checkState`: This state is updated during [`CheckTx`](#checktx), and reset on [`Commit`](#commit).
-* `finalizeBlockState`: This state is updated during [`FinalizeBlock`](#finalizeblock), and set to `nil` on
-  [`Commit`](#commit) and gets re-initialized on `FinalizeBlock`.
-* `processProposalState`: This state is updated during [`ProcessProposal`](#process-proposal).
-* `prepareProposalState`: This state is updated during [`PrepareProposal`](#prepare-proposal).
+* `checkState`：これは[`CheckTx`](#checktx)中に更新され、[`Commit`](#commit)時にリセットされます。
+* `finalizeBlockState`：これは[`FinalizeBlock`](#finalizeblock)中に更新され、[`Commit`](#commit)時に`nil`に設定され、`FinalizeBlock`で再初期化されます。
+* `processProposalState`：これは[`ProcessProposal`](#process-proposal)中に更新されます。
 
-Finally, a few more important parameters:
+最後に、さらにいくつかの重要なパラメータがあります。
 
-* `voteInfos`: This parameter carries the list of validators whose precommit is missing, either
-  because they did not vote or because the proposer did not include their vote. This information is
-  carried by the [Context](./02-context.md) and can be used by the application for various things like
-  punishing absent validators.
-* `minGasPrices`: This parameter defines the minimum gas prices accepted by the node. This is a
-  **local** parameter, meaning each full-node can set a different `minGasPrices`. It is used in the
-  `AnteHandler` during [`CheckTx`](#checktx), mainly as a spam protection mechanism. The transaction
-  enters the [mempool](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#mempool-methods)
-  only if the gas prices of the transaction are greater than one of the minimum gas price in
-  `minGasPrices` (e.g. if `minGasPrices == 1uatom,1photon`, the `gas-price` of the transaction must be
-  greater than `1uatom` OR `1photon`).
-* `appVersion`: Version of the application. It is set in the
-  [application's constructor function](../basics/00-app-anatomy.md#constructor-function).
+* `voteInfos`：このパラメータは、事前コミットが欠落しているバリデータのリストを保持します。これは、彼らが投票しなかったか、または提案者が彼らの投票を含めなかったためです。この情報は[Context](./02-context.md)によって伝達され、アプリケーションは異なることに使用できます。異常なバリデータの罰則などです。
+* `minGasPrices`：このパラメータは、ノードが受け入れる最小のガス価格を定義します。これは**ローカル**パラメータであり、各フルノードは異なる`minGasPrices`を設定できます。これは主にスパム保護メカニズムとして、[`CheckTx`](#checktx)中の`AnteHandler`で使用されます。トランザクションは[mempool](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#mempool-methods)に入るために、トランザクションのガス価格が`minGasPrices`の最小ガス価格のいずれかよりも大きい場合にのみ入ります（たとえば、`minGasPrices == 1uatom,1photon`の場合、トランザクションの`gas-price`は`1uatom`または`1photon`よりも大きくなければなりません）。
+* `appVersion`：アプリケーションのバージョン。これは[アプリケーションのコンストラクタ関数](../basics/00-app-anatomy.md#constructor-function)で設定されます。
+
 
 ## Constructor
 
