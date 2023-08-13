@@ -17,9 +17,10 @@ This document describes the in-built account and public key system of the Cosmos
 
 ## Account Definition
 
-In the Cosmos SDK, an _account_ designates a pair of _public key_ `PubKey` and _private key_ `PrivKey`. The `PubKey` can be derived to generate various `Addresses`, which are used to identify users (among other parties) in the application. `Addresses` are also associated with [`message`s](../building-modules/02-messages-and-queries.md#messages) to identify the sender of the `message`. The `PrivKey` is used to generate [digital signatures](#signatures) to prove that an `Address` associated with the `PrivKey` approved of a given `message`.
+Cosmos SDKにおいて、_アカウント_は_公開鍵_ `PubKey` と_秘密鍵_ `PrivKey` のペアを指します。`PubKey` は、様々な `Addresses` を生成するために派生できます。これらの `Addresses` は、アプリケーション内でユーザー（および他の関係者）を識別するために使用されます。また、`Addresses` は [`message`](../building-modules/02-messages-and-queries.md#messages) にも関連付けられており、`message` の送信者を識別するために使用されます。`PrivKey` は [デジタル署名](#signatures) を生成するために使用され、`PrivKey` に関連付けられた `Address` が特定の `message` を承認したことを証明します。
 
-For HD key derivation the Cosmos SDK uses a standard called [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki). The BIP32 allows users to create an HD wallet (as specified in [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)) - a set of accounts derived from an initial secret seed. A seed is usually created from a 12- or 24-word mnemonic. A single seed can derive any number of `PrivKey`s using a one-way cryptographic function. Then, a `PubKey` can be derived from the `PrivKey`. Naturally, the mnemonic is the most sensitive information, as private keys can always be re-generated if the mnemonic is preserved.
+HD鍵派生では、Cosmos SDKは[BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki)と呼ばれる標準を使用しています。BIP32により、ユーザーはHDウォレットを作成できます（[BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki)で指定されています）。これは初期の秘密シードから派生した一連のアカウントを指します。シードは通常、12語または24語のニーモニックから作成されます。1つのシードは、一方向の暗号関数を使用して任意の数の `PrivKey` を派生できます。その後、`PubKey` を `PrivKey` から派生できます。もちろん、ニーモニックは最も機密性の高い情報であり、秘密鍵は常にニーモニックが保持されている場合に再生成できます。
+
 
 ```text
      Account 0                         Account 1                         Account 2
@@ -61,19 +62,20 @@ For HD key derivation the Cosmos SDK uses a standard called [BIP32](https://gith
                                  +-------------------+
 ```
 
-In the Cosmos SDK, keys are stored and managed by using an object called a [`Keyring`](#keyring).
+Cosmos SDKでは、鍵は[`Keyring`](#keyring)と呼ばれるオブジェクトを使用して保存および管理されます。
 
 ## Keys, accounts, addresses, and signatures
 
-The principal way of authenticating a user is done using [digital signatures](https://en.wikipedia.org/wiki/Digital_signature). Users sign transactions using their own private key. Signature verification is done with the associated public key. For on-chain signature verification purposes, we store the public key in an `Account` object (alongside other data required for a proper transaction validation).
+ユーザーの認証は、[デジタル署名](https://en.wikipedia.org/wiki/Digital_signature)を使用して行います。ユーザーは自分の秘密鍵を使用してトランザクションに署名します。署名の検証は関連する公開鍵で行われます。オンチェーンの署名検証のために、公開鍵は`Account`オブジェクトに格納されます（適切なトランザクションの検証に必要な他のデータとともに）。
 
-In the node, all data is stored using Protocol Buffers serialization.
+ノードでは、すべてのデータはProtocol Buffersシリアル化を使用して保存されます。
 
-The Cosmos SDK supports the following digital key schemes for creating digital signatures:
+Cosmos SDKは、デジタル署名を作成するための次のデジタル鍵スキームをサポートしています：
 
-* `secp256k1`, as implemented in the [Cosmos SDK's `crypto/keys/secp256k1` package](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/secp256k1/secp256k1.go).
-* `secp256r1`, as implemented in the [Cosmos SDK's `crypto/keys/secp256r1` package](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/secp256r1/pubkey.go),
-* `tm-ed25519`, as implemented in the [Cosmos SDK `crypto/keys/ed25519` package](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/ed25519/ed25519.go). This scheme is supported only for the consensus validation.
+* `secp256k1`：[Cosmos SDKの`crypto/keys/secp256k1`パッケージ](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/secp256k1/secp256k1.go)で実装されています。
+* `secp256r1`：[Cosmos SDKの`crypto/keys/secp256r1`パッケージ](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/secp256r1/pubkey.go)で実装されています。
+* `tm-ed25519`：[Cosmos SDKの`crypto/keys/ed25519`パッケージ](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keys/ed25519/ed25519.go)で実装されています。このスキームは、コンセンサス検証のみでサポートされています。
+
 
 |              | Address length in bytes | Public key length in bytes | Used for transaction authentication | Used for consensus (cometbft) |
 | :----------: | :---------------------: | :------------------------: | :---------------------------------: | :-----------------------------: |
@@ -83,30 +85,30 @@ The Cosmos SDK supports the following digital key schemes for creating digital s
 
 ## Addresses
 
-`Addresses` and `PubKey`s are both public information that identifies actors in the application. `Account` is used to store authentication information. The basic account implementation is provided by a `BaseAccount` object.
+`Addresses` および `PubKey` は、アプリケーション内のアクターを識別するための公開情報です。`Account` は認証情報を格納するために使用されます。基本的なアカウントの実装は `BaseAccount` オブジェクトによって提供されます。
 
-Each account is identified using `Address` which is a sequence of bytes derived from a public key. In the Cosmos SDK, we define 3 types of addresses that specify a context where an account is used:
+各アカウントは、公開鍵から派生したバイトのシーケンスである `Address` を使用して識別されます。Cosmos SDKでは、アカウントが使用されるコンテキストを指定する3つのタイプのアドレスを定義しています：
 
-* `AccAddress` identifies users (the sender of a `message`).
-* `ValAddress` identifies validator operators.
-* `ConsAddress` identifies validator nodes that are participating in consensus. Validator nodes are derived using the **`ed25519`** curve.
+* `AccAddress` はユーザーを識別します（`message`の送信者）。
+* `ValAddress` はバリデーターオペレーターを識別します。
+* `ConsAddress` はコンセンサスに参加するバリデーターノードを識別します。バリデーターノードは **`ed25519`** 曲線を使用して派生されます。
 
-These types implement the `Address` interface:
+これらのタイプは `Address` インターフェースを実装しています：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/address.go#L126-L134
 ```
 
-Address construction algorithm is defined in [ADR-28](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-028-public-key-addresses.md).
-Here is the standard way to obtain an account address from a `pub` public key:
+アドレスの構築アルゴリズムは [ADR-28](https://github.com/cosmos/cosmos-sdk/blob/main/docs/architecture/adr-028-public-key-addresses.md) で定義されています。
+ここでは `pub` 公開鍵からアカウントアドレスを取得するための標準的な方法が示されています：
 
 ```go
 sdk.AccAddress(pub.Address().Bytes())
 ```
 
-Of note, the `Marshal()` and `Bytes()` method both return the same raw `[]byte` form of the address. `Marshal()` is required for Protobuf compatibility.
+注意すべきは、`Marshal()` メソッドと `Bytes()` メソッドがどちらもアドレスの同じ生の `[]byte` 形式を返すことです。Protobufの互換性のために `Marshal()` メソッドが必要です。
 
-For user interaction, addresses are formatted using [Bech32](https://en.bitcoin.it/wiki/Bech32) and implemented by the `String` method. The Bech32 method is the only supported format to use when interacting with a blockchain. The Bech32 human-readable part (Bech32 prefix) is used to denote an address type. Example:
+ユーザーとのインタラクションにおいて、アドレスは [Bech32](https://en.bitcoin.it/wiki/Bech32) を使用してフォーマットされ、`String` メソッドによって実装されます。Bech32メソッドは、ブロックチェーンと対話する際に使用する唯一のサポートされている形式です。Bech32のヒューマンリーダブルパート（Bech32プレフィックス）は、アドレスのタイプを示すために使用されます。例：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/address.go#L299-L316
@@ -126,15 +128,15 @@ Public keys in Cosmos SDK are defined by `cryptotypes.PubKey` interface. Since p
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/types/types.go#L8-L17
 ```
 
-A compressed format is used for `secp256k1` and `secp256r1` serialization.
+`secp256k1` および `secp256r1` シリアル化には圧縮フォーマットが使用されます。
 
-* The first byte is a `0x02` byte if the `y`-coordinate is the lexicographically largest of the two associated with the `x`-coordinate.
-* Otherwise the first byte is a `0x03`.
+* 最初のバイトは、`y`-座標が `x`-座標に関連付けられた2つの座標のうち、辞書的に最大のものである場合、`0x02` バイトです。
+* それ以外の場合、最初のバイトは `0x03` です。
 
-This prefix is followed by the `x`-coordinate.
+このプレフィックスの後に `x`-座標が続きます。
 
-Public Keys are not used to reference accounts (or users) and in general are not used when composing transaction messages (with few exceptions: `MsgCreateValidator`, `Validator` and `Multisig` messages).
-For user interactions, `PubKey` is formatted using Protobufs JSON ([ProtoMarshalJSON](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/codec/json.go#L14-L34) function). Example:
+公開鍵はアカウント（またはユーザー）を参照するために使用されず、一般的にはトランザクションメッセージを作成する際には使用されません（いくつかの例外を除く：`MsgCreateValidator`、`Validator`、`Multisig` メッセージなど）。
+ユーザーとのインタラクションでは、`PubKey` は Protobufs JSON 形式でフォーマットされます（[ProtoMarshalJSON](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/codec/json.go#L14-L34) 関数）。例：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys/output.go#L23-L39
@@ -142,54 +144,54 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys/output.go#
 
 ## Keyring
 
-A `Keyring` is an object that stores and manages accounts. In the Cosmos SDK, a `Keyring` implementation follows the `Keyring` interface:
+`Keyring` はアカウントを格納し管理するオブジェクトです。Cosmos SDK では、`Keyring` の実装は `Keyring` インターフェースに従います：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/keyring.go#L57-L105
 ```
 
-The default implementation of `Keyring` comes from the third-party [`99designs/keyring`](https://github.com/99designs/keyring) library.
+デフォルトの `Keyring` の実装は、サードパーティの [`99designs/keyring`](https://github.com/99designs/keyring) ライブラリから提供されます。
 
-A few notes on the `Keyring` methods:
+`Keyring` メソッドに関するいくつかの注意点：
 
-* `Sign(uid string, msg []byte) ([]byte, types.PubKey, error)` strictly deals with the signature of the `msg` bytes. You must prepare and encode the transaction into a canonical `[]byte` form. Because protobuf is not deterministic, it has been decided in [ADR-020](../architecture/adr-020-protobuf-transaction-encoding.md) that the canonical `payload` to sign is the `SignDoc` struct, deterministically encoded using [ADR-027](../architecture/adr-027-deterministic-protobuf-serialization.md). Note that signature verification is not implemented in the Cosmos SDK by default, it is deferred to the [`anteHandler`](../core/00-baseapp.md#antehandler).
+* `Sign(uid string, msg []byte) ([]byte, types.PubKey, error)` は `msg` バイトの署名に厳密に関連しています。トランザクションを正規の `[]byte` フォームに準備してエンコードする必要があります。Protobuf は決定論的ではないため、[ADR-020](../architecture/adr-020-protobuf-transaction-encoding.md) で署名する正規の `payload` は `SignDoc` 構造体であり、[ADR-027](../architecture/adr-027-deterministic-protobuf-serialization.md) を使用して確定的にエンコードされています。なお、署名の検証はCosmos SDKではデフォルトで実装されておらず、代わりに [`anteHandler`](../core/00-baseapp.md#antehandler) に処理が委譲されています。
 
 ```protobuf reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/tx.proto#L50-L66
 ```
 
-* `NewAccount(uid, mnemonic, bip39Passphrase, hdPath string, algo SignatureAlgo) (*Record, error)` creates a new account based on the [`bip44 path`](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) and persists it on disk. The `PrivKey` is **never stored unencrypted**, instead it is [encrypted with a passphrase](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/armor.go) before being persisted. In the context of this method, the key type and sequence number refer to the segment of the BIP44 derivation path (for example, `0`, `1`, `2`, ...) that is used to derive a private and a public key from the mnemonic. Using the same mnemonic and derivation path, the same `PrivKey`, `PubKey` and `Address` is generated. The following keys are supported by the keyring:
+* `NewAccount(uid, mnemonic, bip39Passphrase, hdPath string, algo SignatureAlgo) (*Record, error)` は [`bip44 path`](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) に基づいて新しいアカウントを作成し、ディスクに永続化します。`PrivKey` は**決して平文で保存されません**。代わりに、[パスフレーズで暗号化されます](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/armor.go)。このメソッドのコンテキストでは、キータイプとシーケンス番号は、BIP44導出パスのセグメント（例：`0`、`1`、`2`など）を参照し、助記語から秘密鍵と公開鍵を導出するために使用されます。同じ助記語と導出パスを使用して、同じ `PrivKey`、`PubKey`、および `Address` が生成されます。次のキーは、キーリングでサポートされています：
 
 * `secp256k1`
 * `ed25519`
 
-* `ExportPrivKeyArmor(uid, encryptPassphrase string) (armor string, err error)` exports a private key in ASCII-armored encrypted format using the given passphrase. You can then either import the private key again into the keyring using the `ImportPrivKey(uid, armor, passphrase string)` function or decrypt it into a raw private key using the `UnarmorDecryptPrivKey(armorStr string, passphrase string)` function.
+* `ExportPrivKeyArmor(uid, encryptPassphrase string) (armor string, err error)` は、指定したパスフレーズを使用して、ASCII-armored 暗号化形式で秘密鍵をエクスポートします。その後、`ImportPrivKey(uid, armor, passphrase string)` 関数を使用して再び秘密鍵をキーリングにインポートするか、`UnarmorDecryptPrivKey(armorStr string, passphrase string)` 関数を使用して生の秘密鍵に復号化できます。
 
 ### Create New Key Type
 
-To create a new key type for using in keyring, `keyring.SignatureAlgo` interface must be fulfilled.
+キーリングで使用する新しいキータイプを作成するには、`keyring.SignatureAlgo` インターフェースを満たす必要があります。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/signing_algorithms.go#L10-L15
 ```
 
-The interface consists in three methods where `Name()` returns the name of the algorithm as a `hd.PubKeyType` and `Derive()` and `Generate()` must return the following functions respectively:
+このインターフェースは、3つのメソッドから成り、`Name()` はアルゴリズムの名前を `hd.PubKeyType` として返し、`Derive()` および `Generate()` はそれぞれ以下の関数を返す必要があります：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/hd/algo.go#L28-L31
 ```
 
-Once the `keyring.SignatureAlgo` has been implemented it must be added to the [list of supported algos](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/keyring.go#L217) of the keyring.
+`keyring.SignatureAlgo` が実装されると、キーリングの[サポートされているアルゴリズムのリスト](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/keyring.go#L217)に追加する必要があります。
 
-For simplicity the implementation of a new key type should be done inside the `crypto/hd` package.
-There is an example of a working `secp256k1` implementation in [algo.go](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/hd/algo.go#L38).
+新しいキータイプの実装は、`crypto/hd` パッケージ内で行うべきです。
 
+[algo.go](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/hd/algo.go#L38)には、動作する `secp256k1` 実装の例があります。
 
 #### Implementing secp256r1 algo
 
-Here is an example of how secp256r1 could be implemented.
+以下は、secp256r1 の実装例です。
 
-First a new function to create a private key from a secret number is needed in the secp256r1 package. This function could look like this:
+まず、シークレット番号から秘密鍵を作成するための新しい関数が secp256r1 パッケージに必要です。この関数は次のようになる可能性があります。
 
 ```go
 // cosmos-sdk/crypto/keys/secp256r1/privkey.go
@@ -206,7 +208,7 @@ func NewPrivKeyFromSecret(secret []byte) (*PrivKey, error) {
 }
 ```
 
-After that `secp256r1Algo` can be implemented.
+その後、`secp256r1Algo` を実装できます。
 
 ```go
 // cosmos-sdk/crypto/hd/secp256r1Algo.go
@@ -261,7 +263,7 @@ func (s secp256r1Algo) Generate() GenerateFn {
 }
 ```
 
-Finally, the algo must be added to the list of [supported algos](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/keyring.go#L217) by the keyring.
+最後に、アルゴリズムをキーリングの[サポートされているアルゴリズムのリスト](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/crypto/keyring/keyring.go#L217)に追加する必要があります。
 
 ```go
 // cosmos-sdk/crypto/keyring/keyring.go
@@ -276,6 +278,6 @@ func newKeystore(kr keyring.Keyring, cdc codec.Codec, backend string, opts ...Op
 ...
 ```
 
-Hereafter to create new keys using your algo, you must specify it with the flag `--algo` :
+その後、アルゴリズムを使用して新しいキーを作成するには、フラグ `--algo` を指定する必要があります：
 
 `simd keys add myKey --algo secp256r1`
