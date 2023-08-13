@@ -6,28 +6,29 @@ sidebar_position: 1
 
 ## What is the Cosmos SDK
 
-The [Cosmos SDK](https://github.com/cosmos/cosmos-sdk) is an open-source framework for building multi-asset public Proof-of-Stake (PoS) <df value="blockchain">blockchains</df>, like the Cosmos Hub, as well as permissioned Proof-of-Authority (PoA) blockchains. Blockchains built with the Cosmos SDK are generally referred to as **application-specific blockchains**.
+[Cosmos SDK](https://github.com/cosmos/cosmos-sdk) は、Cosmos Hubなどのマルチアセット公開プルーフ・オブ・ステーク（PoS）<df value="ブロックチェーン">ブロックチェーン</df>や、許可されたプルーフ・オブ・オーソリティ（PoA）ブロックチェーンの構築に使用されるオープンソースのフレームワークです。Cosmos SDKで構築されたブロックチェーンは、一般的に**アプリケーション固有のブロックチェーン**として言及されます。
 
-The goal of the Cosmos SDK is to allow developers to easily create custom blockchains from scratch that can natively interoperate with other blockchains. We envision the Cosmos SDK as the npm-like framework to build secure blockchain applications on top of [CometBFT](https://github.com/cometbft/cometbft). SDK-based blockchains are built out of composable [modules](../building-modules/01-intro.md), most of which are open-source and readily available for any developers to use. Anyone can create a module for the Cosmos SDK, and integrating already-built modules is as simple as importing them into your blockchain application. What's more, the Cosmos SDK is a capabilities-based system that allows developers to better reason about the security of interactions between modules. For a deeper look at capabilities, jump to [Object-Capability Model](../core/10-ocap.md).
+Cosmos SDKの目標は、開発者が他のブロックチェーンとネイティブに相互運用可能なカスタムブロックチェーンを簡単にゼロから作成できるようにすることです。Cosmos SDKは、[CometBFT](https://github.com/cometbft/cometbft) の上にセキュアなブロックチェーンアプリケーションを構築するためのnpmのようなフレームワークとして考えています。SDKベースのブロックチェーンは、[モジュール](../building-modules/01-intro.md)から構築され、そのうちの多くはオープンソースであり、どの開発者でも利用できます。誰でもCosmos SDK向けのモジュールを作成し、既に構築されたモジュールを統合することは、それらをブロックチェーンアプリケーションにインポートするだけです。さらに、Cosmos SDKは能力ベースのシステムであり、モジュール間の相互作用のセキュリティをより良く考えることができる開発者に対して機能します。能力について詳しく見るには、[Object-Capability Model](../core/10-ocap.md) に進んでください。
 
 ## What are Application-Specific Blockchains
 
-One development paradigm in the blockchain world today is that of virtual-machine blockchains like Ethereum, where development generally revolves around building decentralized applications on top of an existing blockchain as a set of smart contracts. While smart contracts can be very good for some use cases like single-use applications (e.g. ICOs), they often fall short for building complex decentralized platforms. More generally, smart contracts can be limiting in terms of flexibility, sovereignty and performance.
+現在のブロックチェーンの開発パラダイムの1つは、Ethereumのような仮想マシンブロックチェーンです。ここでは、スマートコントラクトのセットとして既存のブロックチェーンの上に分散アプリケーションを構築する開発が一般的です。スマートコントラクトは、一部のユースケース（例：ICO）には非常に適しているかもしれませんが、複雑な分散プラットフォームを構築する際にはしばしば制約があります。より一般的には、スマートコントラクトは柔軟性、主権、性能の観点で制限がある場合があります。
 
-Application-specific blockchains offer a radically different development paradigm than virtual-machine blockchains. An application-specific blockchain is a blockchain customized to operate a single application: developers have all the freedom to make the design decisions required for the application to run optimally. They can also provide better sovereignty, security and performance.
+アプリケーション固有のブロックチェーンは、仮想マシンブロックチェーンとは異なる開発パラダイムを提供します。アプリケーション固有のブロックチェーンは、単一のアプリケーションを運用するためにカスタマイズされたブロックチェーンであり、開発者はアプリケーションが最適に動作するために必要な設計上の決定をすべて自由に行うことができます。また、主権、セキュリティ、性能も向上させることができます。
 
-Learn more about [application-specific blockchains](./01-why-app-specific.md).
+[アプリケーション固有のブロックチェーンについて詳しく学ぶ](./01-why-app-specific.md)
 
 ## Why the Cosmos SDK
 
-The Cosmos SDK is the most advanced framework for building custom application-specific blockchains today. Here are a few reasons why you might want to consider building your decentralized application with the Cosmos SDK:
+Cosmos SDKは、カスタムのアプリケーション固有のブロックチェーンを構築するための最も高度なフレームワークです。以下に、Cosmos SDKで分散アプリケーションを構築する理由のいくつかを示します：
 
-* The default consensus engine available within the Cosmos SDK is [CometBFT](https://github.com/cometbft/cometbft). CometBFT is the most (and only) mature BFT consensus engine in existence. It is widely used across the industry and is considered the gold standard consensus engine for building Proof-of-Stake systems.
-* The Cosmos SDK is open-source and designed to make it easy to build blockchains out of composable [modules](../modules). As the ecosystem of open-source Cosmos SDK modules grows, it will become increasingly easier to build complex decentralized platforms with it.
-* The Cosmos SDK is inspired by capabilities-based security, and informed by years of wrestling with blockchain state-machines. This makes the Cosmos SDK a very secure environment to build blockchains.
-* Most importantly, the Cosmos SDK has already been used to build many application-specific blockchains that are already in production. Among others, we can cite [Cosmos Hub](https://hub.cosmos.network), [IRIS Hub](https://irisnet.org), [Binance Chain](https://docs.binance.org/), [Terra](https://terra.money/) or [Kava](https://www.kava.io/). [Many more](https://cosmos.network/ecosystem) are building on the Cosmos SDK.
+* Cosmos SDKで提供されているデフォルトのコンセンサスエンジンは [CometBFT](https://github.com/cometbft/cometbft) です。CometBFTは、存在する中で最も（そして唯一の）成熟したBFTコンセンサスエンジンです。これは業界全体で広く使用され、Proof-of-Stakeシステムを構築するためのゴールドスタンダードのコンセンサスエンジンと見なされています。
+* Cosmos SDKはオープンソースであり、構成可能な[モジュール](../modules)からブロックチェーンを構築することを容易にします。オープンソースのCosmos SDKモジュールのエコシステムが成長するにつれて、それを使って複雑な分散プラットフォームを構築することがますます簡単になります。
+* Cosmos SDKは、能力ベースのセキュリティに影響を受け、ブロックチェーンの状態マシンとの長年の格闘に基づいて設計されています。これにより、Cosmos SDKは非常に安全な環境でブロックチェーンを構築することができます。
+* 最も重要なことは、Cosmos SDKはすでに多くのアプリケーション固有のブロックチェーンを構築し、すでに運用中です。これには [Cosmos Hub](https://hub.cosmos.network)、[IRIS Hub](https://irisnet.org)、[Binance Chain](https://docs.binance.org/)、[Terra](https://terra.money/)、[Kava](https://www.kava.io/) などが含まれます。[多くの他のプロジェクト](https://cosmos.network/ecosystem)がCosmos SDK上で開発しています。
 
-## Getting started with the Cosmos SDK
+## Cosmos SDKのはじめ方
 
-* Learn more about the [architecture of a Cosmos SDK application](./02-sdk-app-architecture.md)
-* Learn how to build an application-specific blockchain from scratch with the [Cosmos SDK Tutorial](https://cosmos.network/docs/tutorial)
+* Cosmos SDKアプリケーションのアーキテクチャについて詳しく学ぶ：[Cosmos SDKアプリケーションアーキテクチャの概要](./02-sdk-app-architecture.md)
+* [Cosmos SDKチュートリアル](https://cosmos.network/docs/tutorial)でゼロからアプリケーション固有のブロックチェーンを構築する方法を学ぶ
+
