@@ -5,7 +5,7 @@ sidebar_position: 1
 # Query Lifecycle
 
 :::note Synopsis
-This document describes the lifecycle of a query in a Cosmos SDK application, from the user interface to application stores and back. The query is referred to as `MyQuery`.
+このドキュメントでは、Cosmos SDKアプリケーションにおけるクエリのライフサイクルについて説明します。ユーザーインターフェースからアプリケーションストアへ、そして戻るまでの流れを示します。このクエリは`MyQuery`と呼ばれます。
 :::
 
 :::note Pre-requisite Readings
@@ -15,35 +15,36 @@ This document describes the lifecycle of a query in a Cosmos SDK application, fr
 
 ## Query Creation
 
-A [**query**](../building-modules/02-messages-and-queries.md#queries) is a request for information made by end-users of applications through an interface and processed by a full-node. Users can query information about the network, the application itself, and application state directly from the application's stores or modules. Note that queries are different from [transactions](../core/01-transactions.md) (view the lifecycle [here](./01-tx-lifecycle.md)), particularly in that they do not require consensus to be processed (as they do not trigger state-transitions); they can be fully handled by one full-node.
+[**クエリ**](../building-modules/02-messages-and-queries.md#queries)は、エンドユーザーがインターフェースを介して行う情報の要求であり、フルノードによって処理されます。ユーザーはネットワークに関する情報、アプリケーション自体の情報、およびアプリケーションのステートに関する情報をアプリケーションのストアやモジュールから直接クエリできます。クエリは[トランザクション](../core/01-transactions.md)とは異なります（ライフサイクルは[こちら](./01-tx-lifecycle.md)を参照）。特に、クエリは処理にコンセンサスを必要とせず（ステート遷移をトリガーしないため）、一つのフルノードで完全に処理されることがあります。
 
-For the purpose of explaining the query lifecycle, let's say the query, `MyQuery`, is requesting a list of delegations made by a certain delegator address in the application called `simapp`. As is to be expected, the [`staking`](../modules/staking/README.md) module handles this query. But first, there are a few ways `MyQuery` can be created by users.
+クエリのライフサイクルを説明する目的で、クエリ `MyQuery` は、特定の委任者アドレスによって行われた委任のリストを `simapp` というアプリケーションからリクエストしていると仮定しましょう。予想されるように、[`staking`](../modules/staking/README.md)モジュールがこのクエリを処理します。しかし、最初にユーザーが `MyQuery` をどのように作成できるかにはいくつかの方法があります。
 
 ### CLI
 
-The main interface for an application is the command-line interface. Users connect to a full-node and run the CLI directly from their machines - the CLI interacts directly with the full-node. To create `MyQuery` from their terminal, users type the following command:
+アプリケーションの主なインターフェースはコマンドラインインターフェースです。ユーザーはフルノードに接続し、CLIを直接自分のマシンから実行します。CLIは直接フルノードとやり取りします。ユーザーは端末から以下のコマンドを入力して`MyQuery`を作成します。
+
 
 ```bash
 simd query staking delegations <delegatorAddress>
 ```
 
-This query command was defined by the [`staking`](../modules/staking/README.md) module developer and added to the list of subcommands by the application developer when creating the CLI.
+このクエリコマンドは、[`staking`](../modules/staking/README.md)モジュールの開発者によって定義され、アプリケーション開発者によってCLIの作成時にサブコマンドのリストに追加されました。
 
-Note that the general format is as follows:
+一般的なフォーマットは次のようになります：
 
 ```bash
 simd query [moduleName] [command] <arguments> --flag <flagArg>
 ```
 
-To provide values such as `--node` (the full-node the CLI connects to), the user can use the [`app.toml`](../run-node/01-run-node.md#configuring-the-node-using-apptoml-and-configtoml) config file to set them or provide them as flags.
+`--node`（CLIが接続するフルノード）などの値を提供するために、ユーザーは[`app.toml`](../run-node/01-run-node.md#configuring-the-node-using-apptoml-and-configtoml)設定ファイルを使用してそれらを設定するか、フラグとして提供することができます。
 
-The CLI understands a specific set of commands, defined in a hierarchical structure by the application developer: from the [root command](../core/07-cli.md#root-command) (`simd`), the type of command (`Myquery`), the module that contains the command (`staking`), and command itself (`delegations`). Thus, the CLI knows exactly which module handles this command and directly passes the call there.
+CLIは特定のコマンドセットを理解し、アプリケーション開発者によって階層構造で定義されます。[ルートコマンド](../core/07-cli.md#root-command)（`simd`）からコマンドの種類（`Myquery`）、コマンドを含むモジュール（`staking`）、そしてコマンド自体（`delegations`）まで、CLIはこのコマンドをどのモジュールが処理するかを正確に把握し、呼び出しを直接そこに渡します。
 
 ### gRPC
 
-Another interface through which users can make queries is [gRPC](https://grpc.io) requests to a [gRPC server](../core/06-grpc_rest.md#grpc-server). The endpoints are defined as [Protocol Buffers](https://developers.google.com/protocol-buffers) service methods inside `.proto` files, written in Protobuf's own language-agnostic interface definition language (IDL). The Protobuf ecosystem developed tools for code-generation from `*.proto` files into various languages. These tools allow to build gRPC clients easily.
+ユーザーがクエリを行うための別のインターフェースは、[gRPC](https://grpc.io)サーバーへの[gRPCリクエスト](../core/06-grpc_rest.md#grpc-server)です。エンドポイントは、`.proto`ファイル内の[Protocol Buffers](https://developers.google.com/protocol-buffers)サービスメソッドとして定義されており、Protobuf独自の言語に依存しないインターフェース定義言語（IDL）で記述されています。Protobufエコシステムは、`*.proto`ファイルからさまざまな言語にコードを生成するためのツールを開発しました。これらのツールを使用すると、簡単にgRPCクライアントを構築できます。
 
-One such tool is [grpcurl](https://github.com/fullstorydev/grpcurl), and a gRPC request for `MyQuery` using this client looks like:
+そのようなツールの一つが[grpcurl](https://github.com/fullstorydev/grpcurl)で、このクライアントを使用して`MyQuery`のgRPCリクエストは次のようになります：
 
 ```bash
 grpcurl \
@@ -57,9 +58,9 @@ grpcurl \
 
 ### REST
 
-Another interface through which users can make queries is through HTTP Requests to a [REST server](../core/06-grpc_rest.md#rest-server). The REST server is fully auto-generated from Protobuf services, using [gRPC-gateway](https://github.com/grpc-ecosystem/grpc-gateway).
+ユーザーがクエリを行うための別のインターフェースは、[RESTサーバー](../core/06-grpc_rest.md#rest-server)へのHTTPリクエストを通じて行うことができます。RESTサーバーは、[gRPC-gateway](https://github.com/grpc-ecosystem/grpc-gateway)を使用して、Protocol Buffersサービスから完全に自動生成されます。
 
-An example HTTP request for `MyQuery` looks like:
+`MyQuery`の例としてのHTTPリクエストは次のようになります：
 
 ```bash
 GET http://localhost:1317/cosmos/staking/v1beta1/delegators/{delegatorAddr}/delegations
@@ -67,36 +68,36 @@ GET http://localhost:1317/cosmos/staking/v1beta1/delegators/{delegatorAddr}/dele
 
 ## How Queries are Handled by the CLI
 
-The preceding examples show how an external user can interact with a node by querying its state. To understand in more detail the exact lifecycle of a query, let's dig into how the CLI prepares the query, and how the node handles it. The interactions from the users' perspective are a bit different, but the underlying functions are almost identical because they are implementations of the same command defined by the module developer. This step of processing happens within the CLI, gRPC, or REST server, and heavily involves a `client.Context`.
+前述の例は、外部ユーザーがノードと対話してその状態をクエリする方法を示しています。クエリの正確なライフサイクルをより詳細に理解するために、CLIがクエリを準備する方法とノードがそれを処理する方法について詳しく見てみましょう。ユーザーの視点からの対話は少し異なりますが、基本的な機能はほぼ同じです。なぜなら、それらはすべてモジュール開発者によって定義された同じコマンドの実装だからです。この処理ステップは、CLI、gRPC、またはRESTサーバー内で行われ、`client.Context`を大いに活用します。
 
 ### Context
 
-The first thing that is created in the execution of a CLI command is a `client.Context`. A `client.Context` is an object that stores all the data needed to process a request on the user side. In particular, a `client.Context` stores the following:
+CLIコマンドの実行中に最初に作成されるものは、`client.Context`です。`client.Context`は、ユーザー側でリクエストを処理するために必要なすべてのデータを格納するオブジェクトです。特に、`client.Context`には次の情報が格納されます：
 
-* **Codec**: The [encoder/decoder](../core/05-encoding.md) used by the application, used to marshal the parameters and query before making the CometBFT RPC request and unmarshal the returned response into a JSON object. The default codec used by the CLI is Protobuf.
-* **Account Decoder**: The account decoder from the [`auth`](../modules/auth/README.md) module, which translates `[]byte`s into accounts.
-* **RPC Client**: The CometBFT RPC Client, or node, to which requests are relayed.
-* **Keyring**: A [Key Manager](../basics/03-accounts.md#keyring) used to sign transactions and handle other operations with keys.
-* **Output Writer**: A [Writer](https://pkg.go.dev/io/#Writer) used to output the response.
-* **Configurations**: The flags configured by the user for this command, including `--height`, specifying the height of the blockchain to query, and `--indent`, which indicates to add an indent to the JSON response.
+* **Codec**: アプリケーションで使用される[エンコーダー/デコーダー](../core/05-encoding.md)は、CometBFT RPCリクエストを作成する前にパラメータとクエリをマーシャリングし、返された応答をJSONオブジェクトにアンマーシャリングするために使用されます。CLIで使用されるデフォルトのコーデックはProtobufです。
+* **アカウントデコーダー**: [`auth`](../modules/auth/README.md)モジュールからのアカウントデコーダーは、`[]byte`をアカウントに変換します。
+* **RPCクライアント**: リクエストがリレーされるCometBFT RPCクライアントまたはノード。
+* **キーリング**: トランザクションに署名し、キーを使用して他の操作を処理するために使用される[キーマネージャー](../basics/03-accounts.md#keyring)。
+* **出力ライター**: 応答を出力するために使用される[ライター](https://pkg.go.dev/io/#Writer)。
+* **設定**: ユーザーがこのコマンドに対して設定したフラグが含まれます。これには`--height`（クエリするブロックチェーンの高さを指定するもの）や、JSON応答にインデントを追加することを示す`--indent`などがあります。
 
-The `client.Context` also contains various functions such as `Query()`, which retrieves the RPC Client and makes an ABCI call to relay a query to a full-node.
+`client.Context`には、RPCクライアントを取得し、クエリをフルノードにリレーするためのABCIコールを行う「Query()」などのさまざまな関数も含まれています。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/context.go#L25-L68
 ```
 
-The `client.Context`'s primary role is to store data used during interactions with the end-user and provide methods to interact with this data - it is used before and after the query is processed by the full-node. Specifically, in handling `MyQuery`, the `client.Context` is utilized to encode the query parameters, retrieve the full-node, and write the output. Prior to being relayed to a full-node, the query needs to be encoded into a `[]byte` form, as full-nodes are application-agnostic and do not understand specific types. The full-node (RPC Client) itself is retrieved using the `client.Context`, which knows which node the user CLI is connected to. The query is relayed to this full-node to be processed. Finally, the `client.Context` contains a `Writer` to write output when the response is returned. These steps are further described in later sections.
+`client.Context`の主な役割は、エンドユーザーとの対話中に使用されるデータを格納し、このデータとの対話に使用するメソッドを提供することです。この役割は、クエリがフルノードで処理される前と後の両方で使用されます。特に、`MyQuery`を処理する際に、`client.Context`はクエリのパラメータをエンコードし、フルノードを取得し、出力を書き込むために使用されます。クエリは、アプリケーションに関する知識を持たず、特定の型を理解しないフルノードにリレーされるため、クエリは`[]byte`形式にエンコードされる必要があります。フルノード（RPCクライアント）自体は、ユーザーのCLIが接続されているノードを知っている`client.Context`を使用して取得されます。クエリはこのフルノードにリレーされて処理されます。最後に、`client.Context`には、応答が返されたときに出力を書き込むための`Writer`が含まれています。これらのステップは、後のセクションで詳しく説明されています。
 
 ### Arguments and Route Creation
 
-At this point in the lifecycle, the user has created a CLI command with all of the data they wish to include in their query. A `client.Context` exists to assist in the rest of the `MyQuery`'s journey. Now, the next step is to parse the command or request, extract the arguments, and encode everything. These steps all happen on the user side within the interface they are interacting with.
+このライフサイクルの段階では、ユーザーはクエリに含めたいすべてのデータを含むCLIコマンドを作成しています。`client.Context`は、`MyQuery`の残りのプロセスで支援するために存在します。次のステップは、コマンドまたはリクエストを解析し、引数を抽出し、すべてをエンコードすることです。これらのステップは、ユーザーが対話するインターフェース内でユーザー側で行われます。
 
 #### Encoding
 
-In our case (querying an address's delegations), `MyQuery` contains an [address](./03-accounts.md#addresses) `delegatorAddress` as its only argument. However, the request can only contain `[]byte`s, as it is ultimately relayed to a consensus engine (e.g. CometBFT) of a full-node that has no inherent knowledge of the application types. Thus, the `codec` of `client.Context` is used to marshal the address.
+私たちの場合（アドレスの委任をクエリする場合）、`MyQuery`には唯一の引数として[アドレス](./03-accounts.md#addresses)`delegatorAddress`が含まれています。ただし、リクエストには最終的には`[]byte`しか含まれないため、これはアプリケーションタイプの特定の知識を持たないフルノード（例：CometBFT）のコンセンサスエンジンにリレーされます。そのため、`client.Context`の`codec`を使用してアドレスをマーシャルします。
 
-Here is what the code looks like for the CLI command:
+以下は、CLIコマンドのコードの例です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/client/cli/query.go#L315-L318
@@ -104,15 +105,15 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/client/cli/q
 
 #### gRPC Query Client Creation
 
-The Cosmos SDK leverages code generated from Protobuf services to make queries. The `staking` module's `MyQuery` service generates a `queryClient`, which the CLI uses to make queries. Here is the relevant code:
+Cosmos SDKは、Protobufサービスから生成されたコードを活用してクエリを行います。`staking`モジュールの`MyQuery`サービスは`queryClient`を生成し、CLIはこれを使用してクエリを実行します。以下が関連するコードです：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/client/cli/query.go#L308-L343
 ```
 
-Under the hood, the `client.Context` has a `Query()` function used to retrieve the pre-configured node and relay a query to it; the function takes the query fully-qualified service method name as path (in our case: `/cosmos.staking.v1beta1.Query/Delegations`), and arguments as parameters. It first retrieves the RPC Client (called the [**node**](../core/03-node.md)) configured by the user to relay this query to, and creates the `ABCIQueryOptions` (parameters formatted for the ABCI call). The node is then used to make the ABCI call, `ABCIQueryWithOptions()`.
+内部では、`client.Context`には`Query()`関数があり、事前に設定されたノードを取得し、クエリをリレーするために使用されます。この関数は、クエリの完全修飾サービスメソッド名をパスとして（この場合は：`/cosmos.staking.v1beta1.Query/Delegations`）、引数をパラメータとして取ります。まず、このクエリをリレーするためにユーザーによって設定されたRPCクライアント（[**ノード**](../core/03-node.md)と呼ばれる）を取得し、`ABCIQueryOptions`（ABCI呼び出しのためにフォーマットされたパラメータ）を作成します。その後、ノードはABCI呼び出し、`ABCIQueryWithOptions()`を行うために使用されます。
 
-Here is what the code looks like:
+以下がコードの例です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/query.go#L79-L113
@@ -120,28 +121,28 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/query.go#L79-L1
 
 ## RPC
 
-With a call to `ABCIQueryWithOptions()`, `MyQuery` is received by a [full-node](../core/05-encoding.md) which then processes the request. Note that, while the RPC is made to the consensus engine (e.g. CometBFT) of a full-node, queries are not part of consensus and so are not broadcasted to the rest of the network, as they do not require anything the network needs to agree upon.
+`ABCIQueryWithOptions()`を呼び出すことで、`MyQuery`は[フルノード](../core/05-encoding.md)に受信され、その後リクエストが処理されます。RPCはフルノードのコンセンサスエンジン（例：CometBFT）に行われるものの、クエリはコンセンサスの一部ではなく、ネットワーク全体にブロードキャストされることはありません。なぜなら、クエリはネットワークが合意する必要のあるものではないためです。
 
-Read more about ABCI Clients and CometBFT RPC in the [CometBFT documentation](https://docs.cometbft.com/v0.37/spec/rpc/).
+ABCIクライアントとCometBFT RPCについて詳しくは、[CometBFTのドキュメント](https://docs.cometbft.com/v0.37/spec/rpc/)をご覧ください。
 
 ## Application Query Handling
 
-When a query is received by the full-node after it has been relayed from the underlying consensus engine, it is at that point being handled within an environment that understands application-specific types and has a copy of the state. [`baseapp`](../core/00-baseapp.md) implements the ABCI [`Query()`](../core/00-baseapp.md#query) function and handles gRPC queries. The query route is parsed, and it matches the fully-qualified service method name of an existing service method (most likely in one of the modules), then `baseapp` relays the request to the relevant module.
+クエリが基盤となるコンセンサスエンジンからリレーされてフルノードに受信されると、その時点でアプリケーション特化型のタイプを理解し、ステートのコピーを持つ環境内で処理されることになります。[`baseapp`](../core/00-baseapp.md)はABCI [`Query()`](../core/00-baseapp.md#query) 関数を実装し、gRPCクエリを処理します。クエリルートは解析され、既存のサービスメソッドの完全修飾名と一致すると、おそらくモジュールの1つに含まれるサービスメソッドにリレーされます。その後、`baseapp`はリクエストを関連するモジュールに中継します。
 
-Since `MyQuery` has a Protobuf fully-qualified service method name from the `staking` module (recall `/cosmos.staking.v1beta1.Query/Delegations`), `baseapp` first parses the path, then uses its own internal `GRPCQueryRouter` to retrieve the corresponding gRPC handler, and routes the query to the module. The gRPC handler is responsible for recognizing this query, retrieving the appropriate values from the application's stores, and returning a response. Read more about query services [here](../building-modules/04-query-services.md).
+`MyQuery`は`staking`モジュールのProtobuf完全修飾サービスメソッド名を持つため（`/cosmos.staking.v1beta1.Query/Delegations`を思い出してください）、`baseapp`はまずパスを解析し、次に独自の内部`GRPCQueryRouter`を使用して対応するgRPCハンドラーを取得し、クエリをモジュールにルーティングします。gRPCハンドラーは、このクエリを認識し、アプリケーションのストアから適切な値を取得し、応答を返す役割を担います。クエリサービスについて詳しくは[こちら](../building-modules/04-query-services.md)をご覧ください。
 
-Once a result is received from the querier, `baseapp` begins the process of returning a response to the user.
+クエリャーから結果を受け取ったら、`baseapp`はユーザーに応答を返すプロセスを開始します。
 
 ## Response
 
-Since `Query()` is an ABCI function, `baseapp` returns the response as an [`abci.ResponseQuery`](https://docs.cometbft.com/master/spec/abci/abci.html#query-2) type. The `client.Context` `Query()` routine receives the response and.
+`Query()`はABCI関数であるため、`baseapp`は応答を[`abci.ResponseQuery`](https://docs.cometbft.com/master/spec/abci/abci.html#query-2)型として返します。`client.Context`の`Query()`ルーチンが応答を受け取ります。
 
 ### CLI Response
 
-The application [`codec`](../core/05-encoding.md) is used to unmarshal the response to a JSON and the `client.Context` prints the output to the command line, applying any configurations such as the output type (text, JSON or YAML).
+アプリケーションの[`codec`](../core/05-encoding.md)は応答をJSONにアンマーシャルし、`client.Context`は出力をコマンドラインに表示し、出力タイプ（テキスト、JSON、またはYAML）などの設定を適用します。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/context.go#L341-L349
 ```
 
-And that's a wrap! The result of the query is outputted to the console by the CLI.
+以上で完了です！クエリの結果は、CLIによってコンソールに出力されます。
