@@ -5,7 +5,7 @@ sidebar_position: 1
 # Node Client (Daemon)
 
 :::note Synopsis
-The main endpoint of a Cosmos SDK application is the daemon client, otherwise known as the full-node client. The full-node runs the state-machine, starting from a genesis file. It connects to peers running the same client in order to receive and relay transactions, block proposals and signatures. The full-node is constituted of the application, defined with the Cosmos SDK, and of a consensus engine connected to the application via the ABCI.
+Cosmos SDKアプリケーションの主要なエンドポイントは、デーモンクライアント、別名フルノードクライアントです。フルノードはジェネシスファイルから開始してステートマシンを実行します。同じクライアントを実行しているピアに接続し、トランザクションやブロック提案、署名を受信および中継します。フルノードは、Cosmos SDKで定義されたアプリケーションと、ABCIを介してアプリケーションに接続されたコンセンサスエンジンで構成されています。
 :::
 
 :::note Pre-requisite Readings
@@ -16,26 +16,26 @@ The main endpoint of a Cosmos SDK application is the daemon client, otherwise kn
 
 ## `main` function
 
-The full-node client of any Cosmos SDK application is built by running a `main` function. The client is generally named by appending the `-d` suffix to the application name (e.g. `appd` for an application named `app`), and the `main` function is defined in a `./appd/cmd/main.go` file. Running this function creates an executable `appd` that comes with a set of commands. For an app named `app`, the main command is [`appd start`](#start-command), which starts the full-node.
+任意のCosmos SDKアプリケーションのフルノードクライアントは、`main`関数を実行して構築されます。クライアントは一般的に、アプリケーション名に`-d`接尾辞を追加して命名されます（例：アプリケーション名`app`の場合、`appd`となります）。また、`main`関数は`./appd/cmd/main.go`ファイルに定義されます。この関数を実行すると、一連のコマンドが付属する実行可能な`appd`が作成されます。アプリ名が`app`の場合、メインコマンドは[`appd start`](#start-command)であり、これによってフルノードが起動します。
 
-In general, developers will implement the `main.go` function with the following structure:
+一般的に、開発者は`main.go`関数を以下の構造で実装します：
 
-* First, an [`encodingCodec`](./05-encoding.md) is instantiated for the application.
-* Then, the `config` is retrieved and config parameters are set. This mainly involves setting the Bech32 prefixes for [addresses](../basics/03-accounts.md#addresses).
+* 最初に、アプリケーションのために[`encodingCodec`](./05-encoding.md)がインスタンス化されます。
+* 次に、`config`が取得され、構成パラメータが設定されます。主に、[address](../basics/03-accounts.md#addresses)のBech32プレフィックスが設定されます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/config.go#L14-L29
 ```
 
-* Using [cobra](https://github.com/spf13/cobra), the root command of the full-node client is created. After that, all the custom commands of the application are added using the `AddCommand()` method of `rootCmd`.
-* Add default server commands to `rootCmd` using the `server.AddCommands()` method. These commands are separated from the ones added above since they are standard and defined at Cosmos SDK level. They should be shared by all Cosmos SDK-based applications. They include the most important command: the [`start` command](#start-command).
-* Prepare and execute the `executor`.
+* [cobra](https://github.com/spf13/cobra)を使用して、フルノードクライアントのルートコマンドが作成されます。その後、アプリケーションのカスタムコマンドは、すべて`rootCmd`の`AddCommand()`メソッドを使用して追加されます。
+* `server.AddCommands()`メソッドを使用して、デフォルトのサーバーコマンドを`rootCmd`に追加します。これらのコマンドは、Cosmos SDKレベルで定義された標準コマンドです。これらは、すべてのCosmos SDKベースのアプリケーションで共有されるべきです。最も重要なコマンドである[`start`コマンド](#start-command)も含まれます。
+* `executor`を準備して実行します。
   
 ```go reference
 https://github.com/cometbft/cometbft/blob/v0.37.0/libs/cli/setup.go#L74-L78
 ```
 
-See an example of `main` function from the `simapp` application, the Cosmos SDK's application for demo purposes:
+以下は、デモ目的のためのCosmos SDKアプリケーションである`simmapp`アプリケーションの`main`関数の例です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/simapp/simd/main.go
@@ -43,7 +43,7 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/simapp/simd/main.go
 
 ## `start` command
 
-The `start` command is defined in the `/server` folder of the Cosmos SDK. It is added to the root command of the full-node client in the [`main` function](#main-function) and called by the end-user to start their node:
+`start`コマンドは、Cosmos SDKの`/server`フォルダに定義されています。これはフルノードクライアントのルートコマンドに[`main`関数](#main-function)で追加され、エンドユーザーがノードを起動するために呼び出されます：
 
 ```bash
 # For an example app named "app", the following command starts the full-node.
@@ -53,44 +53,44 @@ appd start
 simd start
 ```
 
-As a reminder, the full-node is composed of three conceptual layers: the networking layer, the consensus layer and the application layer. The first two are generally bundled together in an entity called the consensus engine (CometBFT by default), while the third is the state-machine defined with the help of the Cosmos SDK. Currently, the Cosmos SDK uses CometBFT as the default consensus engine, meaning the start command is implemented to boot up a CometBFT node.
+再確認ですが、フルノードは3つのコンセプチュアルなレイヤーで構成されています。ネットワーキングレイヤー、コンセンサスレイヤー、およびアプリケーションレイヤーです。最初の2つは一般的にコンセンサスエンジン（デフォルトでCometBFT）としてまとめられる一方、3番目はCosmos SDKのヘルプを得て定義されたステートマシンです。現在、Cosmos SDKはデフォルトのコンセンサスエンジンとしてCometBFTを使用しており、したがって、startコマンドはCometBFTノードを起動するために実装されています。
 
-The flow of the `start` command is pretty straightforward. First, it retrieves the `config` from the `context` in order to open the `db` (a [`leveldb`](https://github.com/syndtr/goleveldb) instance by default). This `db` contains the latest known state of the application (empty if the application is started from the first time.
+`start`コマンドの流れは非常にシンプルです。最初に、`context`から`config`を取得して`db`を開きます（デフォルトでは[`leveldb`](https://github.com/syndtr/goleveldb)インスタンス）。この`db`には、アプリケーションの最新の既知の状態が含まれています（アプリケーションが最初に起動された場合は空です）。
 
-With the `db`, the `start` command creates a new instance of the application using an `appCreator` function:
+`db`を使用して、`start`コマンドは`appCreator`関数を使用してアプリケーションの新しいインスタンスを作成します：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server/start.go#L220
 ```
 
-Note that an `appCreator` is a function that fulfills the `AppCreator` signature:
+注意しておいてください。`appCreator`は`AppCreator`のシグネチャを満たす関数です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server/types/app.go#L68
 ```
 
-In practice, the [constructor of the application](../basics/00-app-anatomy.md#constructor-function) is passed as the `appCreator`.
+実際には、[アプリケーションのコンストラクタ](../basics/00-app-anatomy.md#constructor-function)が`appCreator`として渡されます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/simapp/simd/cmd/root_v2.go#L294-L308
 ```
 
-Then, the instance of `app` is used to instantiate a new CometBFT node:
+その後、`app`のインスタンスは新しいCometBFTノードをインスタンス化するために使用されます：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server/start.go#L341-L378
 ```
 
-The CometBFT node can be created with `app` because the latter satisfies the [`abci.Application` interface](https://github.com/cometbft/cometbft/blob/v0.37.0/abci/types/application.go#L9-L35) (given that `app` extends [`baseapp`](./00-baseapp.md)). As part of the `node.New` method, CometBFT makes sure that the height of the application (i.e. number of blocks since genesis) is equal to the height of the CometBFT node. The difference between these two heights should always be negative or null. If it is strictly negative, `node.New` will replay blocks until the height of the application reaches the height of the CometBFT node. Finally, if the height of the application is `0`, the CometBFT node will call [`InitChain`](./00-baseapp.md#initchain) on the application to initialize the state from the genesis file.
+CometBFTノードは`app`で作成できる理由は、後者が[`baseapp`](./00-baseapp.md)を拡張しているため、[`abci.Application`インターフェース](https://github.com/cometbft/cometbft/blob/v0.37.0/abci/types/application.go#L9-L35)（`app`が[`baseapp`](./00-baseapp.md)を拡張しているため）を満たすからです。`node.New`メソッドの一部として、CometBFTはアプリケーションの高さ（つまり、ジェネシスからのブロック数）がCometBFTノードの高さと等しいことを確認します。これら2つの高さの間の違いは常に負またはnullである必要があります。それが厳密に負の場合、`node.New`は、アプリケーションの高さがCometBFTノードの高さに達するまでブロックを再生するでしょう。最後に、アプリケーションの高さが`0`である場合、CometBFTノードはジェネシスファイルから状態を初期化するためにアプリケーションの[`InitChain`](./00-baseapp.md#initchain)を呼び出します。
 
-Once the CometBFT node is instantiated and in sync with the application, the node can be started:
+CometBFTノードがインスタンス化され、アプリケーションと同期されると、ノードを起動できます：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server/start.go#L350-L352
 ```
 
-Upon starting, the node will bootstrap its RPC and P2P server and start dialing peers. During handshake with its peers, if the node realizes they are ahead, it will query all the blocks sequentially in order to catch up. Then, it will wait for new block proposals and block signatures from validators in order to make progress.
+起動すると、ノードはRPCサーバーとP2Pサーバーをブートストラップし、ピアとのダイアルを開始します。ピアとのハンドシェイク中に、ノードがピアが先行していることに気付いた場合、ノードはキャッチアップするためにすべてのブロックを順次クエリします。その後、バリデータからの新しいブロック提案とブロック署名を待ちます。
 
 ## Other commands
 
-To discover how to concretely run a node and interact with it, please refer to our [Running a Node, API and CLI](../run-node/01-run-node.md) guide.
+ノードを具体的に実行してそれと対話する方法については、[ノードの実行、API、およびCLI](../run-node/01-run-node.md)ガイドを参照してください。
