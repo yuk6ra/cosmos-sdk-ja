@@ -16,145 +16,142 @@ sidebar_position: 1
 
 ## Transactions
 
-Transactions are comprised of metadata held in [contexts](./02-context.md) and [`sdk.Msg`s](../building-modules/02-messages-and-queries.md) that trigger state changes within a module through the module's Protobuf [`Msg` service](../building-modules/03-msg-services.md).
+トランザクションは、[コンテキスト](./02-context.md)内で保持されるメタデータと、モジュールのProtobuf [`Msg`サービス](../building-modules/03-msg-services.md)を介してモジュール内の状態変更をトリガする`sdk.Msg`で構成されています。
 
-When users want to interact with an application and make state changes (e.g. sending coins), they create transactions. Each of a transaction's `sdk.Msg` must be signed using the private key associated with the appropriate account(s), before the transaction is broadcasted to the network. A transaction must then be included in a block, validated, and approved by the network through the consensus process. To read more about the lifecycle of a transaction, click [here](../basics/01-tx-lifecycle.md).
+ユーザーがアプリケーションとやり取りし、ステート変更（例：コインの送信）を行いたい場合、トランザクションを作成します。トランザクションの各`sdk.Msg`は、トランザクションがネットワークにブロードキャストされる前に、適切なアカウントに関連付けられた秘密鍵を使用して署名する必要があります。その後、トランザクションはブロックに含まれ、ネットワークによってコンセンサスプロセスを通じて検証および承認される必要があります。トランザクションのライフサイクルについて詳しくは[こちら](../basics/01-tx-lifecycle.md)をクリックしてください。
 
 ## Type Definition
 
-Transaction objects are Cosmos SDK types that implement the `Tx` interface
+トランザクションオブジェクトは、`Tx`インターフェースを実装したCosmos SDKの型です。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/tx_msg.go#L51-L56
 ```
 
-It contains the following methods:
+以下のメソッドが含まれています：
 
-* **GetMsgs:** unwraps the transaction and returns a list of contained `sdk.Msg`s - one transaction may have one or multiple messages, which are defined by module developers.
-* **ValidateBasic:** lightweight, [_stateless_](../basics/01-tx-lifecycle.md#types-of-checks) checks used by ABCI messages [`CheckTx`](./00-baseapp.md#checktx) and [`DeliverTx`](./00-baseapp.md#delivertx) to make sure transactions are not invalid. For example, the [`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth) module's `ValidateBasic` function checks that its transactions are signed by the correct number of signers and that the fees do not exceed what the user's maximum. When [`runTx`](./00-baseapp.md#runtx) is checking a transaction created from the [`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth/spec) module, it first runs `ValidateBasic` on each message, then runs the `auth` module AnteHandler which calls `ValidateBasic` for the transaction itself.
+* **GetMsgs:** トランザクションを展開し、含まれる`sdk.Msg`のリストを返します。1つのトランザクションには1つ以上のメッセージが含まれる場合があり、これはモジュール開発者によって定義されます。
+* **ValidateBasic:** ABCIメッセージ [`CheckTx`](./00-baseapp.md#checktx) と [`DeliverTx`](./00-baseapp.md#delivertx) で使用される軽量な[_ステートレス_](../basics/01-tx-lifecycle.md#types-of-checks) チェック。トランザクションが無効でないことを確認します。たとえば、[`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth) モジュールの `ValidateBasic` 関数は、トランザクションが正しい数の署名者によって署名されていることや、手数料がユーザーの最大値を超えていないことを確認します。[`runTx`](./00-baseapp.md#runtx) が[`auth`](https://github.com/cosmos/cosmos-sdk/tree/main/x/auth/spec) モジュールから作成されたトランザクションをチェックしている場合、まず各メッセージに対して`ValidateBasic`を実行し、その後 `auth` モジュールのAnteHandlerがトランザクション自体に対して`ValidateBasic`を呼び出します。
 
     :::note
-    This function is different from the deprecated `sdk.Msg` [`ValidateBasic`](../basics/01-tx-lifecycle.md#ValidateBasic) methods, which was performing basic validity checks on messages only. 
+この関数は、廃止された`sdk.Msg`の[`ValidateBasic`](../basics/01-tx-lifecycle.md#ValidateBasic)メソッドとは異なります。これは、メッセージに対して基本的な妥当性チェックのみを実行していました。
     :::
 
-As a developer, you should rarely manipulate `Tx` directly, as `Tx` is really an intermediate type used for transaction generation. Instead, developers should prefer the `TxBuilder` interface, which you can learn more about [below](#transaction-generation).
+開発者としては、`Tx`を直接操作することはほとんどありません。なぜなら、`Tx`は実際にはトランザクション生成に使用される中間型であり、開発者は代わりに`TxBuilder`インターフェースを好むべきです。詳細については[以下](#transaction-generation)で学ぶことができます。
 
 ### Signing Transactions
 
-Every message in a transaction must be signed by the addresses specified by its `GetSigners`. The Cosmos SDK currently allows signing transactions in two different ways.
+トランザクション内のすべてのメッセージは、その`GetSigners`で指定されたアドレスによって署名される必要があります。現在、Cosmos SDKではトランザクションの署名を2つの異なる方法で許可しています。
 
 #### `SIGN_MODE_DIRECT` (preferred)
 
-The most used implementation of the `Tx` interface is the Protobuf `Tx` message, which is used in `SIGN_MODE_DIRECT`:
+`Tx`インターフェースの最も一般的な実装は、Protobuf `Tx`メッセージであり、`SIGN_MODE_DIRECT`で使用されます。
 
 ```protobuf reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/tx.proto#L13-L26
 ```
 
-Because Protobuf serialization is not deterministic, the Cosmos SDK uses an additional `TxRaw` type to denote the pinned bytes over which a transaction is signed. Any user can generate a valid `body` and `auth_info` for a transaction, and serialize these two messages using Protobuf. `TxRaw` then pins the user's exact binary representation of `body` and `auth_info`, called respectively `body_bytes` and `auth_info_bytes`. The document that is signed by all signers of the transaction is `SignDoc` (deterministically serialized using [ADR-027](../architecture/adr-027-deterministic-protobuf-serialization.md)):
+Protobufシリアライゼーションは決定的ではないため、Cosmos SDKはトランザクションが署名されるピン留めバイトを示す追加の`TxRaw`型を使用します。ユーザーはトランザクションのために有効な`body`と`auth_info`を生成し、これらの2つのメッセージをProtobufを使用してシリアライズできます。その後、`TxRaw`はユーザーの`body`と`auth_info`の正確なバイナリ表現である`body_bytes`と`auth_info_bytes`をピン留めします。トランザクションのすべての署名者によって署名されるドキュメントは`SignDoc`です（[ADR-027](../architecture/adr-027-deterministic-protobuf-serialization.md)を使用して決定的にシリアライズされます）：
 
 ```protobuf reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/tx.proto#L48-L65
 ```
 
-Once signed by all signers, the `body_bytes`, `auth_info_bytes` and `signatures` are gathered into `TxRaw`, whose serialized bytes are broadcasted over the network.
+すべての署名者によって署名された後、`body_bytes`、`auth_info_bytes`、および`signatures`は`TxRaw`にまとめられ、そのシリアライズされたバイトはネットワーク上でブロードキャストされます。
 
 #### `SIGN_MODE_LEGACY_AMINO_JSON`
 
-The legacy implementation of the `Tx` interface is the `StdTx` struct from `x/auth`:
+`Tx`インターフェースの旧実装は、`x/auth`からの`StdTx`構造体です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/migrations/legacytx/stdtx.go#L83-L90
 ```
 
-The document signed by all signers is `StdSignDoc`:
+すべての署名者によって署名されるドキュメントは`StdSignDoc`です：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/migrations/legacytx/stdsign.go#L31-L45
 ```
 
-which is encoded into bytes using Amino JSON. Once all signatures are gathered into `StdTx`, `StdTx` is serialized using Amino JSON, and these bytes are broadcasted over the network.
+これはAmino JSONを使用してバイトにエンコードされます。すべての署名が`StdTx`にまとめられると、`StdTx`はAmino JSONを使用してシリアライズされ、これらのバイトはネットワーク上でブロードキャストされます。
 
 #### Other Sign Modes
 
-The Cosmos SDK also provides a couple of other sign modes for particular use cases.
+Cosmos SDKは特定のユースケースに対していくつかの他の署名モードも提供しています。
 
 #### `SIGN_MODE_DIRECT_AUX`
 
-`SIGN_MODE_DIRECT_AUX` is a sign mode released in the Cosmos SDK v0.46 which targets transactions with multiple signers. Whereas `SIGN_MODE_DIRECT` expects each signer to sign over both `TxBody` and `AuthInfo` (which includes all other signers' signer infos, i.e. their account sequence, public key and mode info), `SIGN_MODE_DIRECT_AUX` allows N-1 signers to only sign over `TxBody` and _their own_ signer info. Morever, each auxiliary signer (i.e. a signer using `SIGN_MODE_DIRECT_AUX`) doesn't
-need to sign over the fees:
+`SIGN_MODE_DIRECT_AUX`は、Cosmos SDK v0.46でリリースされた複数の署名者を対象とする署名モードです。`SIGN_MODE_DIRECT`は、各署名者が`TxBody`と`AuthInfo`の両方に署名することを想定しています（これには他のすべての署名者の署名者情報、つまりアカウントシーケンス、公開鍵、モード情報が含まれます）。一方、`SIGN_MODE_DIRECT_AUX`は、N-1の署名者が`TxBody`と_自分自身の_署名者情報に対して署名することを許可します。さらに、各補助署名者（つまり`SIGN_MODE_DIRECT_AUX`を使用する署名者）は手数料に署名する必要はありません：
 
 ```protobuf reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/tx.proto#L67-L98
 ```
 
-The use case is a multi-signer transaction, where one of the signers is appointed to gather all signatures, broadcast the signature and pay for fees, and the others only care about the transaction body. This generally allows for a better multi-signing UX. If Alice, Bob and Charlie are part of a 3-signer transaction, then Alice and Bob can both use `SIGN_MODE_DIRECT_AUX` to sign over the `TxBody` and their own signer info (no need an additional step to gather other signers' ones, like in `SIGN_MODE_DIRECT`), without specifying a fee in their SignDoc. Charlie can then gather both signatures from Alice and Bob, and
-create the final transaction by appending a fee. Note that the fee payer of the transaction (in our case Charlie) must sign over the fees, so must use `SIGN_MODE_DIRECT` or `SIGN_MODE_LEGACY_AMINO_JSON`.
+ユースケースは、複数の署名者がいるトランザクションで、署名者の1人がすべての署名を収集し、署名をブロードキャストし、手数料を支払う役割を担当し、他の署名者はトランザクション本体に関心を持つだけです。これにより、一般的にはより良いマルチサイニングのUXが可能になります。例えば、Alice、Bob、Charlieが3人の署名者のトランザクションの一部である場合、AliceとBobは両方とも`SIGN_MODE_DIRECT_AUX`を使用して`TxBody`と自分自身の署名者情報に署名できます（`SIGN_MODE_DIRECT`のように他の署名者の情報を収集する追加のステップは不要です）。手数料の指定はサインドキュメント内に必要ありません。その後、CharlieはAliceとBobから両方の署名を収集し、手数料を追加して最終的なトランザクションを作成できます。トランザクションの手数料を支払う者（我々の場合はCharlie）は、手数料に対して署名する必要があり、`SIGN_MODE_DIRECT`または`SIGN_MODE_LEGACY_AMINO_JSON`を使用する必要があります。
 
-A concrete use case is implemented in [transaction tips](./14-tips.md): the tipper may use `SIGN_MODE_DIRECT_AUX` to specify a tip in the transaction, without signing over the actual transaction fees. Then, the fee payer appends fees inside the tipper's desired `TxBody`, and as an exchange for paying the fees and broadcasting the transaction, receives the tipper's transaction tips as payment.
+具体的なユースケースは、[トランザクションチップ](./14-tips.md)で実装されています。チップを提示する人は、トランザクションにチップを指定するために`SIGN_MODE_DIRECT_AUX`を使用し、実際のトランザクション手数料に署名する必要はありません。その後、手数料を支払いトランザクションをブロードキャストする代わりに、手数料を支払い、トランザクションの手数料としてトランザクションチップを受け取ることができます。
 
 #### `SIGN_MODE_TEXTUAL`
 
-`SIGN_MODE_TEXTUAL` is a new sign mode for delivering a better signing experience on hardware wallets, it is currently still under implementation. If you wish to learn more, please refer to [ADR-050](https://github.com/cosmos/cosmos-sdk/pull/10701).
+`SIGN_MODE_TEXTUAL`は、ハードウェアウォレットでの署名体験を向上させるための新しい署名モードであり、現在はまだ実装中です。詳細については、[ADR-050](https://github.com/cosmos/cosmos-sdk/pull/10701)を参照してください。
 
 #### Custom Sign modes
 
-There is the the opportunity to add your own custom sign mode to the Cosmos-SDK.  While we can not accept the implementation of the sign mode to the repository, we can accept a pull request to add the custom signmode to the SignMode enum located [here](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/signing/v1beta1/signing.proto#L17)
+Cosmos-SDKに独自のカスタム署名モードを追加する機会があります。署名モードの実装はリポジトリには受け入れられませんが、カスタム署名モードをSignMode列挙体に追加するためのプルリクエストは受け入れることができます。[こちら](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/signing/v1beta1/signing.proto#L17)にSignMode列挙体があります。
 
 ## Transaction Process
 
-The process of an end-user sending a transaction is:
+エンドユーザーがトランザクションを送信するプロセスは次のとおりです：
 
-* decide on the messages to put into the transaction,
-* generate the transaction using the Cosmos SDK's `TxBuilder`,
-* broadcast the transaction using one of the available interfaces.
+* トランザクションに含めるメッセージを決定する。
+* Cosmos SDKの`TxBuilder`を使用してトランザクションを生成する。
+* 利用可能なインターフェースのいずれかを使用してトランザクションをブロードキャストする。
 
-The next paragraphs will describe each of these components, in this order.
+次の段落では、これらのコンポーネントそれぞれについて、この順序で説明します。
 
 ### Messages
 
 :::tip
-Module `sdk.Msg`s are not to be confused with [ABCI Messages](https://docs.cometbft.com/v0.37/spec/abci/) which define interactions between the CometBFT and application layers.
+モジュールの`sdk.Msg`は、CometBFTとアプリケーション層間の相互作用を定義する[ABCIメッセージ](https://docs.cometbft.com/v0.37/spec/abci/)とは混同しないでください。
 :::
 
-**Messages** (or `sdk.Msg`s) are module-specific objects that trigger state transitions within the scope of the module they belong to. Module developers define the messages for their module by adding methods to the Protobuf [`Msg` service](../building-modules/03-msg-services.md), and also implement the corresponding `MsgServer`.
+**メッセージ**（または`sdk.Msg`）は、モジュール固有のオブジェクトであり、それが属するモジュールのスコープ内でステートの遷移をトリガーします。モジュールの開発者は、Protobuf [`Msg`サービス](../building-modules/03-msg-services.md)にメソッドを追加してモジュールのメッセージを定義し、対応する`MsgServer`も実装します。
 
-Each `sdk.Msg`s is related to exactly one Protobuf [`Msg` service](../building-modules/03-msg-services.md) RPC, defined inside each module's `tx.proto` file. A SDK app router automatically maps every `sdk.Msg` to a corresponding RPC. Protobuf generates a `MsgServer` interface for each module `Msg` service, and the module developer needs to implement this interface.
-This design puts more responsibility on module developers, allowing application developers to reuse common functionalities without having to implement state transition logic repetitively.
+各`sdk.Msg`は、各モジュールの`tx.proto`ファイル内で定義された、1つのProtobuf [`Msg`サービス](../building-modules/03-msg-services.md) RPCに関連付けられています。SDKアプリのルータは、自動的に各`sdk.Msg`を対応するRPCにマッピングします。Protobufは各モジュールの`Msg`サービスに対して`MsgServer`インターフェースを生成し、モジュール開発者がこのインターフェースを実装する必要があります。この設計はモジュール開発者により多くの責任を負わせ、アプリケーション開発者が繰り返しステート遷移ロジックを実装する必要なく、共通の機能を再利用できるようにします。
 
-To learn more about Protobuf `Msg` services and how to implement `MsgServer`, click [here](../building-modules/03-msg-services.md).
+Protobuf `Msg`サービスと`MsgServer`の実装方法について詳しくは、[こちら](../building-modules/03-msg-services.md)をクリックしてください。
 
-While messages contain the information for state transition logic, a transaction's other metadata and relevant information are stored in the `TxBuilder` and `Context`.
+メッセージはステート遷移ロジックの情報を含む一方、トランザクションのその他のメタデータと関連情報は`TxBuilder`と`Context`に保存されます。
 
 ### Transaction Generation
 
-The `TxBuilder` interface contains data closely related with the generation of transactions, which an end-user can freely set to generate the desired transaction:
+`TxBuilder`インターフェースには、トランザクションの生成に密接に関連するデータが含まれており、エンドユーザーはこれを自由に設定して必要なトランザクションを生成できます：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/tx_config.go#L40-L53
 ```
 
-* `Msg`s, the array of [messages](#messages) included in the transaction.
-* `GasLimit`, option chosen by the users for how to calculate how much gas they will need to pay.
-* `Memo`, a note or comment to send with the transaction.
-* `FeeAmount`, the maximum amount the user is willing to pay in fees.
-* `TimeoutHeight`, block height until which the transaction is valid.
-* `Signatures`, the array of signatures from all signers of the transaction.
+* トランザクションに含まれるメッセージの配列である[メッセージ](#messages)。
+* ユーザーが支払う必要のあるガス量を計算するためのオプションである`GasLimit`。
+* トランザクションと一緒に送信されるメモまたはコメントである`Memo`。
+* ユーザーが手数料として支払うことを承認する最大金額である`FeeAmount`。
+* トランザクションが有効なブロックの高さである`TimeoutHeight`。
+* トランザクションのすべての署名者からの署名の配列である`Signatures`。
 
-As there are currently two sign modes for signing transactions, there are also two implementations of `TxBuilder`:
+現在、トランザクションに署名するための2つの署名モードがあるため、`TxBuilder`の実装も2つあります：
 
-* [wrapper](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/tx/builder.go#L26-L43) for creating transactions for `SIGN_MODE_DIRECT`,
-* [StdTxBuilder](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/migrations/legacytx/stdtx_builder.go#L14-L17) for `SIGN_MODE_LEGACY_AMINO_JSON`.
+* `SIGN_MODE_DIRECT`用の[wrapper](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/tx/builder.go#L26-L43)、
+* `SIGN_MODE_LEGACY_AMINO_JSON`用の[StdTxBuilder](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/migrations/legacytx/stdtx_builder.go#L14-L17)。
 
-However, the two implementation of `TxBuilder` should be hidden away from end-users, as they should prefer using the overarching `TxConfig` interface:
+ただし、`TxBuilder`の2つの実装はエンドユーザーから隠蔽されるべきであり、代わりに総合的な`TxConfig`インターフェースの使用を優先する必要があります：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/tx_config.go#L24-L34
 ```
 
-`TxConfig` is an app-wide configuration for managing transactions. Most importantly, it holds the information about whether to sign each transaction with `SIGN_MODE_DIRECT` or `SIGN_MODE_LEGACY_AMINO_JSON`. By calling `txBuilder := txConfig.NewTxBuilder()`, a new `TxBuilder` will be created with the appropriate sign mode.
+`TxConfig`は、トランザクションを管理するためのアプリ全体の設定です。最も重要なのは、各トランザクションを`SIGN_MODE_DIRECT`または`SIGN_MODE_LEGACY_AMINO_JSON`で署名するかどうかの情報を保持していることです。`txBuilder := txConfig.NewTxBuilder()`と呼び出すことで、適切な署名モードで新しい`TxBuilder`が作成されます。
 
-Once `TxBuilder` is correctly populated with the setters exposed above, `TxConfig` will also take care of correctly encoding the bytes (again, either using `SIGN_MODE_DIRECT` or `SIGN_MODE_LEGACY_AMINO_JSON`). Here's a pseudo-code snippet of how to generate and encode a transaction, using the `TxEncoder()` method:
+`TxBuilder`が上記で公開されたセッターで正しく設定された場合、`TxConfig`はバイトを正しくエンコードするのも適切に処理します（再度、`SIGN_MODE_DIRECT`または`SIGN_MODE_LEGACY_AMINO_JSON`を使用）。以下に、`TxEncoder()`メソッドを使用してトランザクションを生成およびエンコードするための疑似コードスニペットを示します：
 
 ```go
 txBuilder := txConfig.NewTxBuilder()
@@ -166,13 +163,13 @@ bz, err := txConfig.TxEncoder()(txBuilder.GetTx())
 
 ### Broadcasting the Transaction
 
-Once the transaction bytes are generated, there are currently three ways of broadcasting it.
+トランザクションバイトが生成されたら、現在は3つの方法でそれをブロードキャストすることができます。
 
 #### CLI
 
-Application developers create entry points to the application by creating a [command-line interface](../core/07-cli.md), [gRPC and/or REST interface](../core/06-grpc_rest.md), typically found in the application's `./cmd` folder. These interfaces allow users to interact with the application through command-line.
+アプリケーション開発者は、[コマンドラインインターフェース](../core/07-cli.md)、[gRPCおよび/またはRESTインターフェース](../core/06-grpc_rest.md)を作成して、アプリケーションの`./cmd`フォルダに通常配置します。これらのインターフェースは、ユーザーがコマンドラインを介してアプリケーションと対話できるようにします。
 
-For the [command-line interface](../building-modules/09-module-interfaces.md#cli), module developers create subcommands to add as children to the application top-level transaction command `TxCmd`. CLI commands actually bundle all the steps of transaction processing into one simple command: creating messages, generating transactions and broadcasting. For concrete examples, see the [Interacting with a Node](../run-node/02-interact-node.md) section. An example transaction made using CLI looks like:
+[コマンドラインインターフェース](../building-modules/09-module-interfaces.md#cli)の場合、モジュール開発者は、アプリケーションのトップレベルトランザクションコマンド`TxCmd`の子として追加するサブコマンドを作成します。CLIコマンドは、実際にはトランザクション処理のすべてのステップを1つの簡単なコマンドにまとめています：メッセージの作成、トランザクションの生成、およびブロードキャスト。具体的な例については、[ノードとの対話](../run-node/02-interact-node.md)セクションを参照してください。CLIを使用して作成されたトランザクションの例は次のようになります：
 
 ```bash
 simd tx send $MY_VALIDATOR_ADDRESS $RECIPIENT 1000stake
@@ -180,22 +177,22 @@ simd tx send $MY_VALIDATOR_ADDRESS $RECIPIENT 1000stake
 
 #### gRPC
 
-[gRPC](https://grpc.io) is the main component for the Cosmos SDK's RPC layer. Its principal usage is in the context of modules' [`Query` services](../building-modules/04-query-services.md). However, the Cosmos SDK also exposes a few other module-agnostic gRPC services, one of them being the `Tx` service:
+[gRPC](https://grpc.io)は、Cosmos SDKのRPCレイヤーの主要なコンポーネントです。主な使用方法は、モジュールの[`Query`サービス](../building-modules/04-query-services.md)のコンテキストで行われます。ただし、Cosmos SDKはいくつかの他のモジュールに依存しないgRPCサービスも公開しており、その1つが`Tx`サービスです：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/proto/cosmos/tx/v1beta1/service.proto
 ```
 
-The `Tx` service exposes a handful of utility functions, such as simulating a transaction or querying a transaction, and also one method to broadcast transactions.
+`Tx`サービスは、トランザクションをシミュレートしたり、トランザクションをクエリしたりするためのユーティリティ関数をいくつか公開しており、またトランザクションをブロードキャストするための1つのメソッドも公開しています。
 
-Examples of broadcasting and simulating a transaction are shown [here](../run-node/03-txs.md#programmatically-with-go).
+トランザクションのブロードキャストとシミュレートの例については、[こちら](../run-node/03-txs.md#programmatically-with-go)を参照してください。
 
 #### REST
 
-Each gRPC method has its corresponding REST endpoint, generated using [gRPC-gateway](https://github.com/grpc-ecosystem/grpc-gateway). Therefore, instead of using gRPC, you can also use HTTP to broadcast the same transaction, on the `POST /cosmos/tx/v1beta1/txs` endpoint.
+各gRPCメソッドには対応するRESTエンドポイントがあり、[gRPC-gateway](https://github.com/grpc-ecosystem/grpc-gateway)を使用して生成されます。したがって、gRPCを使用する代わりに、`POST /cosmos/tx/v1beta1/txs`エンドポイントを介して同じトランザクションをHTTPでブロードキャストすることもできます。
 
-An example can be seen [here](../run-node/03-txs.md#using-rest)
+例は[こちら](../run-node/03-txs.md#using-rest)で確認できます。
 
 #### CometBFT RPC
 
-The three methods presented above are actually higher abstractions over the CometBFT RPC `/broadcast_tx_{async,sync,commit}` endpoints, documented [here](https://docs.cometbft.com/v0.37/core/rpc). This means that you can use the CometBFT RPC endpoints directly to broadcast the transaction, if you wish so.
+上記に示した3つのメソッドは、実際にはCometBFT RPCの`/broadcast_tx_{async,sync,commit}`エンドポイントの上位抽象化です。これは、必要に応じてCometBFT RPCエンドポイントを直接使用してトランザクションをブロードキャストすることもできることを意味します。
