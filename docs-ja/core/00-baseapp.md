@@ -103,129 +103,102 @@ func NewBaseApp(
 }
 ```
 
-The `BaseApp` constructor function is pretty straightforward. The only thing worth noting is the
-possibility to provide additional [`options`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/options.go)
-to the `BaseApp`, which will execute them in order. The `options` are generally `setter` functions
-for important parameters, like `SetPruning()` to set pruning options or `SetMinGasPrices()` to set
-the node's `min-gas-prices`.
+`BaseApp`のコンストラクタ関数は非常にわかりやすいです。注意する価値があるのは、追加の[`options`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/options.go)を`BaseApp`に提供できることです。これらの`options`は通常、`SetPruning()`を使用して剪定オプションを設定するか、`SetMinGasPrices()`を使用してノードの`min-gas-prices`を設定するなど、重要なパラメータの`setter`関数です。
 
-Naturally, developers can add additional `options` based on their application's needs.
+もちろん、開発者はアプリケーションのニーズに基づいて追加の`options`を追加できます。
 
 ## State Updates
 
-The `BaseApp` maintains four primary volatile states and a root or main state. The main state
-is the canonical state of the application and the volatile states, `checkState`, `prepareProposalState`, `processProposalState` and `finalizeBlockState`
-are used to handle state transitions in-between the main state made during [`Commit`](#commit).
+`BaseApp`は主に4つの主要な揮発性ステートとルートまたはメインステートを維持しています。メインステートはアプリケーションの正準状態であり、揮発性ステートである`checkState`、`prepareProposalState`、`processProposalState`、および`finalizeBlockState`は、メインステートとの間のステート遷移を処理するために使用されます。これらの遷移は[`Commit`](#commit)中に行われます。
 
-Internally, there is only a single `CommitMultiStore` which we refer to as the main or root state.
-From this root state, we derive four volatile states by using a mechanism called _store branching_ (performed by `CacheWrap` function).
-The types can be illustrated as follows:
+内部的には、単一の`CommitMultiStore`が存在し、これをメインまたはルートステートと呼んでいます。このルートステートから、`CacheWrap`関数によって実行されるメカニズムである_store branching_を使用して、4つの揮発性ステートを導出します。その型は次のように示されます：
+
 
 ![Types](./baseapp_state.png)
 
 ### InitChain State Updates
 
-During `InitChain`, the four volatile states, `checkState`, `prepareProposalState`, `processProposalState` 
-and `finalizeBlockState` are set by branching the root `CommitMultiStore`. Any subsequent reads and writes happen 
-on branched versions of the `CommitMultiStore`.
-To avoid unnecessary roundtrip to the main state, all reads to the branched store are cached.
+`InitChain`中、`checkState`、`prepareProposalState`、`processProposalState`、`finalizeBlockState`の4つの揮発性ステートは、ルートの`CommitMultiStore`を分岐させて設定されます。その後のすべての読み書きは、`CommitMultiStore`の分岐バージョンで行われます。
+メインステートへの不必要なラウンドトリップを避けるため、分岐したストアへのすべての読み取りはキャッシュされます。
 
 ![InitChain](./baseapp_state-initchain.png)
 
 ### CheckTx State Updates
 
-During `CheckTx`, the `checkState`, which is based off of the last committed state from the root
-store, is used for any reads and writes. Here we only execute the `AnteHandler` and verify a service router
-exists for every message in the transaction. Note, when we execute the `AnteHandler`, we branch
-the already branched `checkState`.
-This has the side effect that if the `AnteHandler` fails, the state transitions won't be reflected in the `checkState`
--- i.e. `checkState` is only updated on success.
+`CheckTx`中、最後にコミットされたルートストアから派生した`checkState`は、すべての読み取りと書き込みに使用されます。ここでは`AnteHandler`を実行し、トランザクション内の各メッセージに対してサービスルーターが存在するかを確認します。`AnteHandler`を実行する際には、すでに分岐された`checkState`を分岐させます。
+これにより、`AnteHandler`が失敗する場合、ステートの遷移は`checkState`には反映されないという副作用があります。つまり、`checkState`は成功時にのみ更新されます。
 
 ![CheckTx](./baseapp_state-checktx.png)
 
 ### PrepareProposal State Updates
 
-During `PrepareProposal`, the `prepareProposalState` is set by branching the root `CommitMultiStore`. 
-The `prepareProposalState` is used for any reads and writes that occur during the `PrepareProposal` phase.
-The function uses the `Select()` method of the mempool to iterate over the transactions. `runTx` is then called,
-which encodes and validates each transaction and from there the `AnteHandler` is executed. 
-If successful, valid transactions are returned inclusive of the events, tags, and data generated 
-during the execution of the proposal. 
-The described behavior is that of the default handler, applications have the flexibility to define their own 
-[custom mempool handlers](https://docs.cosmos.network/main/building-apps/app-mempool#custom-mempool-handlers).
+`PrepareProposal`中、`prepareProposalState`はルートの`CommitMultiStore`を分岐させて設定されます。
+`prepareProposalState`は、`PrepareProposal`フェーズ中に発生するすべての読み取りと書き込みに使用されます。
+この関数は、メンプールの`Select()`メソッドを使用してトランザクションを反復処理します。その後、`runTx`が呼び出され、各トランザクションがエンコードおよび検証され、そこから`AnteHandler`が実行されます。
+成功した場合、有効なトランザクションが提案の実行中に生成されるイベント、タグ、データを含めて返されます。
+ここで説明した動作はデフォルトハンドラーのものであり、アプリケーションは独自の[カスタムメンプールハンドラー](https://docs.cosmos.network/main/building-apps/app-mempool#custom-mempool-handlers)を定義する柔軟性があります。
 
 ![ProcessProposal](./baseapp_state-prepareproposal.png)
 
 ### ProcessProposal State Updates
 
-During `ProcessProposal`, the `processProposalState` is set based off of the last committed state 
-from the root store and is used to process a signed proposal received from a validator.
-In this state, `runTx` is called and the `AnteHandler` is executed and the context used in this state is built with information 
-from the header and the main state, including the minimum gas prices, which are also set. 
-Again we want to highlight that the described behavior is that of the default handler and applications have the flexibility to define their own
-[custom mempool handlers](https://docs.cosmos.network/main/building-apps/app-mempool#custom-mempool-handlers).
+`ProcessProposal`中、`processProposalState`は、ルートストアから最後にコミットされたステートを基に設定され、バリデータから受信した署名付き提案を処理するために使用されます。
+このステートでは、`runTx`が呼び出され、`AnteHandler`が実行され、このステートで使用されるコンテキストは、ヘッダーとメインステートからの情報を含み、最小ガス価格も設定されます。
+ここでも、説明した動作はデフォルトハンドラーのものであり、アプリケーションは独自の[カスタムメンプールハンドラー](https://docs.cosmos.network/main/building-apps/app-mempool#custom-mempool-handlers)を定義する柔軟性があります。
 
 ![ProcessProposal](./baseapp_state-processproposal.png)
 
 ### FinalizeBlock State Updates
 
-During `FinalizeBlock`, the `finalizeBlockState` is set for use during transaction execution and endblock. The
-`finalizeBlockState` is based off of the last committed state from the root store and is branched.
-Note, the `finalizeBlockState` is set to `nil` on [`Commit`](#commit).
+`FinalizeBlock`中、`finalizeBlockState`はトランザクションの実行とエンドブロックの際に使用するために設定されます。
+`finalizeBlockState`は、ルートストアから最後にコミットされたステートを基に分岐されます。
+注意してくださいが、`finalizeBlockState`は[`Commit`](#commit)時に`nil`に設定されます。
 
-The state flow for transcation execution is nearly identical to `CheckTx` except state transitions occur on
-the `finalizeBlockState` and messages in a transaction are executed. Similarly to `CheckTx`, state transitions
-occur on a doubly branched state -- `finalizeBlockState`. Successful message execution results in
-writes being committed to `finalizeBlockState`. Note, if message execution fails, state transitions from
-the AnteHandler are persisted.
+トランザクションの実行のステートフローは、`CheckTx`とほぼ同じですが、ステートの遷移は`finalizeBlockState`で行われ、トランザクション内のメッセージが実行されます。
+`CheckTx`と同様に、ステートの遷移はダブルブランチのステートで行われます。成功したメッセージの実行により、`finalizeBlockState`への書き込みがコミットされます。
+注意してくださいが、メッセージの実行が失敗すると、`AnteHandler`からのステートの遷移が永続化されます。
 
 ### Commit State Updates
 
-During `Commit` all the state transitions that occurred in the `finalizeBlockState` are finally written to
-the root `CommitMultiStore` which in turn is committed to disk and results in a new application
-root hash. These state transitions are now considered final. Finally, the `checkState` is set to the
-newly committed state and `finalizeBlockState` is set to `nil` to be reset on `FinalizeBlock`.
+`Commit`中、`finalizeBlockState`で発生したすべてのステートの遷移が最終的にルートの`CommitMultiStore`に書き込まれ、それがディスクにコミットされて新しいアプリケーションのルートハッシュが生成されます。これらのステートの遷移は今や最終的と見なされます。最後に、`checkState`が新たにコミットされたステートに設定され、`finalizeBlockState`は`FinalizeBlock`でリセットされるために`nil`に設定されます。
 
 ![Commit](./baseapp_state-commit.png)
 
 ## ParamStore
 
-During `InitChain`, the `RequestInitChain` provides `ConsensusParams` which contains parameters
-related to block execution such as maximum gas and size in addition to evidence parameters. If these
-parameters are non-nil, they are set in the BaseApp's `ParamStore`. Behind the scenes, the `ParamStore`
-is managed by an `x/consensus_params` module. This allows the parameters to be tweaked via
- on-chain governance.
+`InitChain`中、`RequestInitChain`は`ConsensusParams`を提供します。これにはブロック実行に関連するパラメータ（最大ガスやサイズなど）と、証拠に関するパラメータが含まれます。これらのパラメータが`nil`でない場合、これらはBaseAppの`ParamStore`に設定されます。裏で、`ParamStore`は`x/consensus_params`モジュールによって管理されています。これにより、パラメータはオンチェーンガバナンスを介して調整できるようになります。
 
 ## Service Routers
 
-When messages and queries are received by the application, they must be routed to the appropriate module in order to be processed. Routing is done via `BaseApp`, which holds a `msgServiceRouter` for messages, and a `grpcQueryRouter` for queries.
+アプリケーションがメッセージやクエリを受信すると、それらは処理されるために適切なモジュールにルーティングされる必要があります。ルーティングは`BaseApp`を介して行われ、メッセージのために`msgServiceRouter`、クエリのために`grpcQueryRouter`を保持しています。
 
 ### `Msg` Service Router
 
-[`sdk.Msg`s](../building-modules/02-messages-and-queries.md#messages) need to be routed after they are extracted from transactions, which are sent from the underlying CometBFT engine via the [`CheckTx`](#checktx) and [`FinalizeBlock`](#finalizeblock) ABCI messages. To do so, `BaseApp` holds a `msgServiceRouter` which maps fully-qualified service methods (`string`, defined in each module's Protobuf  `Msg` service) to the appropriate module's `MsgServer` implementation.
+[`sdk.Msg`](../building-modules/02-messages-and-queries.md#messages)は、トランザクションから抽出された後にルーティングされる必要があります。これらのトランザクションは、基盤となるCometBFTエンジンから[`CheckTx`](#checktx)と[`FinalizeBlock`](#finalizeblock)のABCIメッセージを介して送信されます。これを行うために、`BaseApp`は`msgServiceRouter`を保持し、完全修飾されたサービスメソッド（各モジュールのProtobuf `Msg`サービスで定義される`string`）を適切なモジュールの`MsgServer`実装にマップします。
 
-The [default `msgServiceRouter` included in `BaseApp`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/msg_service_router.go) is stateless. However, some applications may want to make use of more stateful routing mechanisms such as allowing governance to disable certain routes or point them to new modules for upgrade purposes. For this reason, the `sdk.Context` is also passed into each [route handler inside `msgServiceRouter`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/msg_service_router.go#L31-L32). For a stateless router that doesn't want to make use of this, you can just ignore the `ctx`.
+[デフォルトの`msgServiceRouter`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/msg_service_router.go)はステートレスです。ただし、一部のアプリケーションは、ガバナンスによって特定のルートを無効にしたり、アップグレードの目的で新しいモジュールにポイントしたりするなど、より状態を持つルーティングメカニズムを利用したい場合があります。そのため、`sdk.Context`も各[ルートハンドラー内で`msgServiceRouter`に渡されます](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/msg_service_router.go#L31-L32)。これを使用しないステートレスなルーターの場合、`ctx`を無視することができます。
 
-The application's `msgServiceRouter` is initialized with all the routes using the application's [module manager](../building-modules/01-module-manager.md#manager) (via the `RegisterServices` method), which itself is initialized with all the application's modules in the application's [constructor](../basics/00-app-anatomy.md#constructor-function).
+
+アプリケーションの`msgServiceRouter`は、すべてのルートがアプリケーションの[モジュールマネージャー](../building-modules/01-module-manager.md#manager)（`RegisterServices`メソッドを介して）を使用して初期化されます。モジュールマネージャー自体は、アプリケーションの[コンストラクタ](../basics/00-app-anatomy.md#constructor-function)でアプリケーションのすべてのモジュールで初期化されます。
 
 ### gRPC Query Router
 
-Similar to `sdk.Msg`s, [`queries`](../building-modules/02-messages-and-queries.md#queries) need to be routed to the appropriate module's [`Query` service](../building-modules/04-query-services.md). To do so, `BaseApp` holds a `grpcQueryRouter`, which maps modules' fully-qualified service methods (`string`, defined in their Protobuf `Query` gRPC) to their `QueryServer` implementation. The `grpcQueryRouter` is called during the initial stages of query processing, which can be either by directly sending a gRPC query to the gRPC endpoint, or via the [`Query` ABCI message](#query) on the CometBFT RPC endpoint.
+`sdk.Msg`と同様に、[`クエリ`](../building-modules/02-messages-and-queries.md#queries)も適切なモジュールの[`Query`サービス](../building-modules/04-query-services.md)にルーティングする必要があります。これを行うために、`BaseApp`は`grpcQueryRouter`を保持し、モジュールの完全修飾されたサービスメソッド（各モジュールのProtobuf `Query` gRPCで定義される`string`）を適切なモジュールの`QueryServer`実装にマップします。`grpcQueryRouter`はクエリ処理の初期段階で呼び出されます。これはgRPCクエリを直接gRPCエンドポイントに送信するか、CometBFT RPCエンドポイント上の[`Query` ABCIメッセージ](#query)を介して行われます。
 
-Just like the `msgServiceRouter`, the `grpcQueryRouter` is initialized with all the query routes using the application's [module manager](../building-modules/01-module-manager.md) (via the `RegisterServices` method), which itself is initialized with all the application's modules in the application's [constructor](../basics/00-app-anatomy.md#app-constructor).
+`msgServiceRouter`と同様に、`grpcQueryRouter`もアプリケーションの[モジュールマネージャー](../building-modules/01-module-manager.md)（`RegisterServices`メソッドを介して）を使用してすべてのクエリルートが初期化されます。モジュールマネージャー自体は、アプリケーションの[コンストラクタ](../basics/00-app-anatomy.md#app-constructor)でアプリケーションのすべてのモジュールで初期化されます。
 
 ## Main ABCI 2.0 Messages
 
-The [Application-Blockchain Interface](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md) (ABCI) is a generic interface that connects a state-machine with a consensus engine to form a functional full-node. It can be wrapped in any language, and needs to be implemented by each application-specific blockchain built on top of an ABCI-compatible consensus engine like CometBFT.
+[アプリケーション・ブロックチェーン・インターフェース](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md)（ABCI）は、ステートマシンをコンセンサスエンジンに接続して機能するフルノードを形成する汎用インターフェースです。これは任意の言語でラップでき、CometBFTのようなABCI互換のコンセンサスエンジンの上に構築される各アプリケーション特化型ブロックチェーンで実装する必要があります。
 
-The consensus engine handles two main tasks:
+コンセンサスエンジンは2つの主要なタスクを処理します：
 
-* The networking logic, which mainly consists in gossiping block parts, transactions and consensus votes.
-* The consensus logic, which results in the deterministic ordering of transactions in the form of blocks.
+* ネットワーキングロジックは、主にブロックパーツ、トランザクション、およびコンセンサス投票をゴシップすることから成ります。
+* コンセンサスロジックは、ブロック形式のトランザクションの決定論的な順序付けとして結果を出します。
 
-It is **not** the role of the consensus engine to define the state or the validity of transactions. Generally, transactions are handled by the consensus engine in the form of `[]bytes`, and relayed to the application via the ABCI to be decoded and processed. At keys moments in the networking and consensus processes (e.g. beginning of a block, commit of a block, reception of an unconfirmed transaction, ...), the consensus engine emits ABCI messages for the state-machine to act on.
+コンセンサスエンジンの役割は、ステートやトランザクションの正当性を定義することではありません。一般的に、トランザクションはコンセンサスエンジンによって`[]bytes`の形式で処理され、ABCIを介してアプリケーションに転送されてデコードおよび処理されます。ネットワーキングとコンセンサスプロセスのキーとなる時点（例：ブロックの開始、ブロックのコミット、未確認トランザクションの受信など）で、コンセンサスエンジンはステートマシンがアクションを起こすためのABCIメッセージを発行します。
 
-Developers building on top of the Cosmos SDK need not implement the ABCI themselves, as `BaseApp` comes with a built-in implementation of the interface. Let us go through the main ABCI messages that `BaseApp` implements:
+Cosmos SDKを使用して開発する開発者は、ABCIを自分で実装する必要はありません。なぜなら、`BaseApp`にはインターフェースの組み込み実装が含まれているからです。ここでは、`BaseApp`が実装する主要なABCIメッセージについて説明します：
 
 * [`Prepare Proposal`](#prepare-proposal)
 * [`Process Proposal`](#process-proposal)
@@ -237,192 +210,164 @@ Developers building on top of the Cosmos SDK need not implement the ABCI themsel
 
 ### Prepare Proposal
 
-The `PrepareProposal` function is part of the new methods introduced in Application Blockchain Interface (ABCI++) in CometBFT and is an important part of the application's overall governance system. In the Cosmos SDK, it allows the application to have more fine-grained control over the transactions that are processed, and ensures that only valid transactions are committed to the blockchain.
+`PrepareProposal` 関数は、CometBFTのApplication Blockchain Interface（ABCI++）で導入された新しいメソッドの一部であり、アプリケーション全体のガバナンスシステムの重要な部分です。Cosmos SDKでは、この関数を使用してアプリケーションは処理されるトランザクションをより細かく制御し、正当なトランザクションのみがブロックチェーンにコミットされることを保証します。
 
-Here is how the `PrepareProposal` function can be implemented:
+`PrepareProposal` 関数の実装方法は次のとおりです：
 
-1.  Extract the `sdk.Msg`s from the transaction.
-2.  Perform _stateful_ checks by calling `Validate()` on each of the `sdk.Msg`'s. This is done after _stateless_ checks as _stateful_ checks are more computationally expensive. If `Validate()` fails, `PrepareProposal` returns before running further checks, which saves resources.
-3.  Perform any additional checks that are specific to the application, such as checking account balances, or ensuring that certain conditions are met before a transaction is proposed.hey are processed by the consensus engine, if necessary.
-4.  Return the updated transactions to be processed by the consensus engine
+1.  トランザクションから `sdk.Msg` を抽出します。
+2.  各 `sdk.Msg` に対して `Validate()` を呼び出すことで _ステートフル_ チェックを実行します。これは _ステートレス_ チェックの後に行われ、_ステートフル_ チェックは計算コストが高いです。もし `Validate()` が失敗した場合、さらなるチェックの前に `PrepareProposal` がリソースを節約するために戻ります。
+3.  アプリケーション固有の追加のチェックを実行します。これにはアカウント残高の確認や、トランザクションが提案される前に特定の条件が満たされていることを確認することなどが含まれます。
+4.  コンセンサスエンジンによって処理される更新されたトランザクションを返します。
 
-Note that, unlike `CheckTx()`, `PrepareProposal` process `sdk.Msg`s, so it can directly update the state. However, unlike `FinalizeBlock()`, it does not commit the state updates. It's important to exercise caution when using `PrepareProposal` as incorrect coding could affect the overall liveness of the network.
+`PrepareProposal` は `CheckTx()` とは異なり、`sdk.Msg` を処理するため、ステートを直接更新できます。ただし、`FinalizeBlock()` とは異なり、ステートの更新はコミットされません。`PrepareProposal` を使用する際には注意が必要です。誤ったコーディングはネットワーク全体のライブネスに影響を与える可能性があるためです。
 
-It's important to note that `PrepareProposal` complements the `ProcessProposal` method which is executed after this method. The combination of these two methods means that it is possible to guarantee that no invalid transactions are ever committed. Furthermore, such a setup can give rise to other interesting use cases such as Oracles, threshold decryption and more.
+`PrepareProposal` は、このメソッドの後に実行される `ProcessProposal` メソッドと相補的な役割を果たします。これらの2つのメソッドの組み合わせにより、無効なトランザクションがコミットされないことを保証することが可能です。さらに、このようなセットアップは、オラクル、閾値復号化などの興味深いユースケースを生み出す可能性があります。
 
-`PrepareProposal` returns a response to the underlying consensus engine of type [`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#processproposal). The response contains:
+`PrepareProposal` は、[`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#processproposal) の型で、基盤となるコンセンサスエンジンに対して応答を返します。応答には以下が含まれます：
 
-*   `Code (uint32)`: Response Code. `0` if successful.
-*   `Data ([]byte)`: Result bytes, if any.
-*   `Log (string):` The output of the application's logger. May be non-deterministic.
-*   `Info (string):` Additional information. May be non-deterministic.
+*   `Code (uint32)`: 応答コード。成功した場合は `0` です。
+*   `Data ([]byte)`: リザルトのバイト、あれば。
+*   `Log (string):` アプリケーションのロガーの出力。非決定論的な可能性があります。
+*   `Info (string):` 追加情報。非決定論的な可能性があります。
 
 
 ### Process Proposal
 
-The `ProcessProposal` function is called by the BaseApp as part of the ABCI message flow, and is executed during the `FinalizeBlock` phase of the consensus process. The purpose of this function is to give more control to the application for block validation, allowing it to check all transactions in a proposed block before the validator sends the prevote for the block. It allows a validator to perform application-dependent work in a proposed block, enabling features such as immediate block execution, and allows the Application to reject invalid blocks.
+`ProcessProposal` 関数は、BaseAppによってABCIメッセージフローの一部として呼び出され、コンセンサスプロセスの `FinalizeBlock` フェーズ中に実行されます。この関数の目的は、アプリケーションにブロックの検証に対するより多くの制御を提供し、バリデータがブロックの prevote を送信する前に提案されたブロック内のすべてのトランザクションをチェックできるようにすることです。これにより、バリデータは提案されたブロック内でアプリケーション依存の作業を実行できるようになり、ブロックの即時実行などの機能を可能にし、アプリケーションが無効なブロックを拒否できるようにします。
 
-The `ProcessProposal` function performs several key tasks, including:
+`ProcessProposal` 関数は、次の主要なタスクを実行します：
 
-1.  Validating the proposed block by checking all transactions in it.
-2.  Checking the proposed block against the current state of the application, to ensure that it is valid and that it can be executed.
-3.  Updating the application's state based on the proposal, if it is valid and passes all checks.
-4.  Returning a response to CometBFT indicating the result of the proposal processing.
+1.  提案されたブロック内のすべてのトランザクションをチェックして提案されたブロックを検証します。
+2.  提案されたブロックをアプリケーションの現在のステートと照らし合わせ、それが有効であり、実行可能であることを確認します。
+3.  ブロックが有効ですべてのチェックに合格する場合、提案に基づいてアプリケーションのステートを更新します。
+4.  提案処理の結果を示す CometBFT への応答を返します。
 
-The `ProcessProposal` is an important part of the application's overall governance system. It is used to manage the network's parameters and other key aspects of its operation. It also ensures that the coherence property is adhered to i.e. all honest validators must accept a proposal by an honest proposer.
+`ProcessProposal` は、アプリケーション全体のガバナンスシステムの重要な部分です。ネットワークのパラメータやその他の重要な側面を管理するために使用されます。また、一貫性のプロパティが守られることを確認します。すなわち、すべての誠実なバリデータは誠実なプロポーザーによる提案を受け入れる必要があります。
 
-It's important to note that `ProcessProposal` complements the `PrepareProposal` method which enables the application to have more fine-grained transaction control by allowing it to reorder, drop, delay, modify, and even add transactions as they see necessary. The combination of these two methods means that it is possible to guarantee that no invalid transactions are ever committed. Furthermore, such a setup can give rise to other interesting use cases such as Oracles, threshold decryption and more.
+`ProcessProposal` は `PrepareProposal` メソッドと相補的な役割を果たします。`PrepareProposal` メソッドは、アプリケーションがトランザクションをより細かく制御するために使用され、必要に応じてトランザクションの並べ替え、削除、遅延、変更、追加を行うことができます。これらの2つのメソッドの組み合わせにより、無効なトランザクションがコミットされないことを保証することが可能です。さらに、このようなセットアップは、オラクル、閾値復号化などの興味深いユースケースを生み出す可能性があります。
 
-CometBFT calls it when it receives a proposal and the CometBFT algorithm has not locked on a value. The Application cannot modify the proposal at this point but can reject it if it is invalid. If that is the case, CometBFT will prevote `nil` on the proposal, which has strong liveness implications for CometBFT. As a general rule, the Application SHOULD accept a prepared proposal passed via `ProcessProposal`, even if a part of the proposal is invalid (e.g., an invalid transaction); the Application can ignore the invalid part of the prepared proposal at block execution time.
+CometBFT は、提案を受信し、CometBFTアルゴリズムが値にロックされていない場合に `ProcessProposal` を呼び出します。この時点ではアプリケーションは提案を変更することはできませんが、無効であれば拒否することができます。その場合、CometBFT は提案に対して `nil` を prevote し、これはCometBFTにとって強力なライブネスの影響を持ちます。一般的なルールとして、アプリケーションは `ProcessProposal` 経由で準備された提案を受け入れるべきです。提案の一部が無効であっても（例：無効なトランザクションなど）、アプリケーションはブロック実行時に準備された提案の無効な部分を無視できます。
 
-However, developers must exercise greater caution when using these methods. Incorrectly coding these methods could affect liveness as CometBFT is unable to receive 2/3 valid precommits to finalize a block.
+ただし、これらのメソッドを使用する際には、より注意を払う必要があります。これらのメソッドを誤ってコーディングすると、CometBFTはブロックを最終化するために2/3の有効なprecommitを受信できなくなる可能性があります。
 
-`ProcessProposal` returns a response to the underlying consensus engine of type [`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#processproposal). The response contains:
+`ProcessProposal` は、[`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#processproposal) の型で、基盤となるコンセンサスエンジンに対して応答を返します。応答には以下が含まれます：
 
-*   `Code (uint32)`: Response Code. `0` if successful.
-*   `Data ([]byte)`: Result bytes, if any.
-*   `Log (string):` The output of the application's logger. May be non-deterministic.
-*   `Info (string):` Additional information. May be non-deterministic.
+*   `Code (uint32)`: 応答コード。成功した場合は `0` です。
+*   `Data ([]byte)`: リザルトのバイト、あれば。
+*   `Log (string):` アプリケーションのロガーの出力。非決定論的な可能性があります。
+*   `Info (string):` 追加情報。非決定論的な可能性があります。
 
 
 ### CheckTx
 
-`CheckTx` is sent by the underlying consensus engine when a new unconfirmed (i.e. not yet included in a valid block)
-transaction is received by a full-node. The role of `CheckTx` is to guard the full-node's mempool
-(where unconfirmed transactions are stored until they are included in a block) from spam transactions.
-Unconfirmed transactions are relayed to peers only if they pass `CheckTx`.
+`CheckTx` は、未確認の（つまり、まだ有効なブロックに含まれていない）トランザクションがフルノードによって受信されたときに、基盤となるコンセンサスエンジンによって送信されます。`CheckTx` の役割は、フルノードのメンプール（トランザクションがブロックに含まれるまで格納される場所）をスパムトランザクションから保護することです。未確認のトランザクションは、`CheckTx` をパスする場合にのみピアにリレーされます。
 
-`CheckTx()` can perform both _stateful_ and _stateless_ checks, but developers should strive to
-make the checks **lightweight** because gas fees are not charged for the resources (CPU, data load...) used during the `CheckTx`. 
+`CheckTx()` は、_ステートフル_ と _ステートレス_ の両方のチェックを実行できますが、ガス料金は `CheckTx` 中のリソース（CPU、データ負荷など）の使用に対して課金されないため、チェックを**軽量化**することが重要です。
 
-In the Cosmos SDK, after [decoding transactions](./05-encoding.md), `CheckTx()` is implemented
-to do the following checks:
+Cosmos SDK では、トランザクションを[デコード](./05-encoding.md)した後、`CheckTx()` は以下のチェックを行うために実装されています：
 
-1. Extract the `sdk.Msg`s from the transaction.
-2. **Optionally** perform _stateless_ checks by calling `ValidateBasic()` on each of the `sdk.Msg`s. This is done
-   first, as _stateless_ checks are less computationally expensive than _stateful_ checks. If
-   `ValidateBasic()` fail, `CheckTx` returns before running _stateful_ checks, which saves resources.
-   This check is still performed for messages that have not yet migrated to the new message validation mechanism defined in [RFC 001](https://docs.cosmos.network/main/rfc/rfc-001-tx-validation) and still have a `ValidateBasic()` method.
-3. Perform non-module related _stateful_ checks on the [account](../basics/03-accounts.md). This step is mainly about checking
-   that the `sdk.Msg` signatures are valid, that enough fees are provided and that the sending account
-   has enough funds to pay for said fees. Note that no precise [`gas`](../basics/04-gas-fees.md) counting occurs here,
-   as `sdk.Msg`s are not processed. Usually, the [`AnteHandler`](../basics/04-gas-fees.md#antehandler) will check that the `gas` provided
-   with the transaction is superior to a minimum reference gas amount based on the raw transaction size,
-   in order to avoid spam with transactions that provide 0 gas.
+1.  トランザクションから `sdk.Msg` を抽出します。
+2.  各 `sdk.Msg` に対して _ステートレス_ チェックを **オプションで** 実行します。これは、_ステートレス_ チェックが _ステートフル_ チェックよりも計算コストが低いため、まず実行されます。`ValidateBasic()` が失敗した場合、_ステートフル_ チェックを実行する前に `CheckTx` が返され、リソースが節約されます。このチェックは、まだ [RFC 001](https://docs.cosmos.network/main/rfc/rfc-001-tx-validation) で定義された新しいメッセージの検証メカニズムに移行していないメッセージに対しても実行され、まだ `ValidateBasic()` メソッドを持っているメッセージに対して行われます。
+3. [アカウント](../basics/03-accounts.md) に関連しない _ステートフル_ チェックを実行します。このステップでは、`sdk.Msg` の署名が有効であること、十分な手数料が提供されていること、送信アカウントに支払いに十分な資金があることを確認します。ここでは正確な [`gas`](../basics/04-gas-fees.md) カウントは行われませんが、`sdk.Msg` は処理されません。通常、[`AnteHandler`](../basics/04-gas-fees.md#antehandler) は、トランザクションとともに提供された `gas` が、生のトランザクションのサイズに基づく最小リファレンスガス量を上回るようにチェックします。これにより、ガスを提供しないトランザクションによるスパムを回避します。
 
-`CheckTx` does **not** process `sdk.Msg`s -  they only need to be processed when the canonical state need to be updated, which happens during `FinalizeBlock`.
+`CheckTx` は `sdk.Msg` を処理しません - 正規のステートが更新される必要がある場合にのみ処理する必要があり、これは `FinalizeBlock` 中に行われます。
 
-Steps 2. and 3. are performed by the [`AnteHandler`](../basics/04-gas-fees.md#antehandler) in the [`RunTx()`](#runtx-antehandler-and-runmsgs)
-function, which `CheckTx()` calls with the `runTxModeCheck` mode. During each step of `CheckTx()`, a
-special [volatile state](#state-updates) called `checkState` is updated. This state is used to keep
-track of the temporary changes triggered by the `CheckTx()` calls of each transaction without modifying
-the [main canonical state](#main-state). For example, when a transaction goes through `CheckTx()`, the
-transaction's fees are deducted from the sender's account in `checkState`. If a second transaction is
-received from the same account before the first is processed, and the account has consumed all its
-funds in `checkState` during the first transaction, the second transaction will fail `CheckTx`() and
-be rejected. In any case, the sender's account will not actually pay the fees until the transaction
-is actually included in a block, because `checkState` never gets committed to the main state. The
-`checkState` is reset to the latest state of the main state each time a blocks gets [committed](#commit).
+ステップ2およびステップ3は、[`AnteHandler`](../basics/04-gas-fees.md#antehandler)内の[`RunTx()`](#runtx-antehandler-and-runmsgs)関数によって実行されます。これは、`CheckTx()`が`runTxModeCheck`モードで呼び出すものです。`CheckTx()`の各ステップごとに、`checkState`と呼ばれる特別な[ボラティルステート](#state-updates)が更新されます。このステートは、各トランザクションの`CheckTx()`呼び出しによってトリガーされる一時的な変更を追跡するために使用されますが、[main canonical state](#main-state)を変更しません。例えば、トランザクションが`CheckTx()`を通過する際に、トランザクションの手数料は`checkState`内の送信者のアカウントから差し引かれます。最初のトランザクションの処理中に、同じアカウントから2番目のトランザクションが受信され、アカウントが最初のトランザクション中に`checkState`ですべての資金を消費した場合、2番目のトランザクションは`CheckTx`()に失敗し、拒否されます。どの場合でも、送信者のアカウントは実際には手数料を支払うことはありません。トランザクションが実際にブロックに含まれるまで、`checkState`はmain stateの最新の状態にリセットされます。`checkState`は、各ブロックが[committed](#commit)されるたびにリセットされます。
 
-`CheckTx` returns a response to the underlying consensus engine of type [`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#checktx).
-The response contains:
+`CheckTx`は、タイプ[`abci.ResponseCheckTx`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#checktx)のアンダーラインコンセンサスエンジンに対して応答を返します。レスポンスには次の情報が含まれます：
 
-* `Code (uint32)`: Response Code. `0` if successful.
-* `Data ([]byte)`: Result bytes, if any.
-* `Log (string):` The output of the application's logger. May be non-deterministic.
-* `Info (string):` Additional information. May be non-deterministic.
-* `GasWanted (int64)`: Amount of gas requested for transaction. It is provided by users when they generate the transaction.
-* `GasUsed (int64)`: Amount of gas consumed by transaction. During `CheckTx`, this value is computed by multiplying the standard cost of a transaction byte by the size of the raw transaction. Next is an example:
+* `Code (uint32)`: レスポンスコード。成功時は`0`。
+* `Data ([]byte)`: データバイト、必要な場合。
+* `Log (string)`: アプリケーションのロガーの出力。非決定論的な場合があります。
+* `Info (string)`: 追加情報。非決定論的な場合があります。
+* `GasWanted (int64)`: トランザクションの要求されたガス量。トランザクションを生成するユーザーによって提供されます。
+* `GasUsed (int64)`: トランザクションによって消費されたガス量。`CheckTx`中では、この値はトランザクションバイトの標準コストをトランザクションの生のサイズに乗じて計算されます。以下に例を示します：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/ante/basic.go#L102
 ```
 
-* `Events ([]cmn.KVPair)`: Key-Value tags for filtering and indexing transactions (eg. by account). See [`event`s](./08-events.md) for more.
-* `Codespace (string)`: Namespace for the Code.
+* `Events ([]cmn.KVPair)`: トランザクションのフィルタリングとインデックス化のためのキーと値のタグ（例：アカウントごと）。詳細は[`event`](./08-events.md)を参照してください。
+* `Codespace (string)`: コードのための名前空間。
 
 #### RecheckTx
 
-After `Commit`, `CheckTx` is run again on all transactions that remain in the node's local mempool
-excluding the transactions that are included in the block. To prevent the mempool from rechecking all transactions
-every time a block is committed, the configuration option `mempool.recheck=false` can be set. As of
-Tendermint v0.32.1, an additional `Type` parameter is made available to the `CheckTx` function that
-indicates whether an incoming transaction is new (`CheckTxType_New`), or a recheck (`CheckTxType_Recheck`).
-This allows certain checks like signature verification can be skipped during `CheckTxType_Recheck`.
+`Commit`の後、ブロックに含まれるトランザクションを除いた、ノードのローカルなメンプールに残っているすべてのトランザクションに対して、再度`CheckTx`が実行されます。メンプールがすべてのトランザクションを毎回ブロックがコミットされるたびに再チェックするのを防ぐために、設定オプション`mempool.recheck=false`を設定できます。Tendermint v0.32.1以降、追加の`Type`パラメータが`CheckTx`関数に提供され、着信トランザクションが新しいものか（`CheckTxType_New`）、再チェックか（`CheckTxType_Recheck`）を示します。これにより、シグネチャの検証などの特定のチェックを`CheckTxType_Recheck`中にスキップできます。
 
 ## RunTx, AnteHandler, RunMsgs, PostHandler
 
 ### RunTx
 
-`RunTx` is called from `CheckTx`/`Finalizeblock` to handle the transaction, with `execModeCheck` or `execModeFinalize` as parameter to differentiate between the two modes of execution. Note that when `RunTx` receives a transaction, it has already been decoded.
+`RunTx`は、トランザクションを処理するために`CheckTx`/`Finalizeblock`から呼び出され、実行モードの2つ（`execModeCheck`または`execModeFinalize`）を区別するためのパラメータとして渡されます。`RunTx`がトランザクションを受け取る時点で、すでにデコードされています。
 
-The first thing `RunTx` does upon being called is to retrieve the `context`'s `CacheMultiStore` by calling the `getContextForTx()` function with the appropriate mode (either `runTxModeCheck` or `execModeFinalize`). This `CacheMultiStore` is a branch of the main store, with cache functionality (for query requests), instantiated during `FinalizeBlock` for transaction execution and during the `Commit` of the previous block for `CheckTx`. After that, two `defer func()` are called for [`gas`](../basics/04-gas-fees.md) management. They are executed when `runTx` returns and make sure `gas` is actually consumed, and will throw errors, if any.
+`RunTx`が呼び出された際の最初の手順は、適切なモード（`runTxModeCheck`または`execModeFinalize`）で`getContextForTx()`関数を呼び出して`context`の`CacheMultiStore`を取得することです。この`CacheMultiStore`は、クエリリクエストのためのキャッシュ機能（クエリリクエスト用）を備えた、トランザクションの実行のために`FinalizeBlock`で、`CheckTx`のために前のブロックの`Commit`中にインスタンス化されるmain storeのブランチです。その後、[`gas`](../basics/04-gas-fees.md)の管理のために2つの`defer func()`が呼び出されます。これらは`runTx`が戻ると実行され、実際に`gas`が消費され、エラーがあればエラーが発生します。
 
-After that, `RunTx()` calls `ValidateBasic()`, when available and for backward compatibility, on each `sdk.Msg`in the `Tx`, which runs preliminary _stateless_ validity checks. If any `sdk.Msg` fails to pass `ValidateBasic()`, `RunTx()` returns with an error.
+その後、`RunTx()`は、各`Tx`内の`sdk.Msg`に対して利用可能であれば、および後方互換性のために`ValidateBasic()`を呼び出し、事前の非状態の妥当性チェックを実行します。`sdk.Msg`のいずれかが`ValidateBasic()`をパスできない場合、`RunTx()`はエラーで返ります。
 
-Then, the [`anteHandler`](#antehandler) of the application is run (if it exists). In preparation of this step, both the `checkState`/`finalizeBlockState`'s `context` and `context`'s `CacheMultiStore` are branched using the `cacheTxContext()` function.
+次に、アプリケーションの[`anteHandler`](#antehandler)が実行されます（存在する場合）。このステップの準備として、`checkState`/`finalizeBlockState`の`context`と`context`の`CacheMultiStore`は、`cacheTxContext()`関数を使用してブランチされます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#L663-L680
 ```
 
-This allows `RunTx` not to commit the changes made to the state during the execution of `anteHandler` if it ends up failing. It also prevents the module implementing the `anteHandler` from writing to state, which is an important part of the [object-capabilities](./10-ocap.md) of the Cosmos SDK.
+これにより、`RunTx` は、`anteHandler` の実行中にステートに行われた変更をコミットしないようにすることができます。また、`anteHandler` を実装するモジュールがステートに書き込むのを防ぎ、それは Cosmos SDK の [object-capabilities](./10-ocap.md) の重要な部分です。
 
-Finally, the [`RunMsgs()`](#runmsgs) function is called to process the `sdk.Msg`s in the `Tx`. In preparation of this step, just like with the `anteHandler`, both the `checkState`/`finalizeBlockState`'s `context` and `context`'s `CacheMultiStore` are branched using the `cacheTxContext()` function.
+最後に、[`RunMsgs()`](#runmsgs) 関数が `Tx` 内の `sdk.Msg` を処理するために呼び出されます。このステップの準備として、`anteHandler` と同様に、`checkState`/`finalizeBlockState` の `context` と `context` の `CacheMultiStore` は、`cacheTxContext()` 関数を使用して分岐されます。
 
 ### AnteHandler
 
-The `AnteHandler` is a special handler that implements the `AnteHandler` interface and is used to authenticate the transaction before the transaction's internal messages are processed.
+`AnteHandler` は、`AnteHandler` インターフェースを実装する特別なハンドラであり、トランザクションの内部メッセージが処理される前にトランザクションを認証するために使用されます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/handler.go#L6-L8
 ```
 
-The `AnteHandler` is theoretically optional, but still a very important component of public blockchain networks. It serves 3 primary purposes:
+理論的には `AnteHandler` はオプションですが、パブリックブロックチェーンネットワークの非常に重要なコンポーネントです。主な目的は次の3つです：
 
-* Be a primary line of defense against spam and second line of defense (the first one being the mempool) against transaction replay with fees deduction and [`sequence`](./01-transactions.md#transaction-generation) checking.
-* Perform preliminary _stateful_ validity checks like ensuring signatures are valid or that the sender has enough funds to pay for fees.
-* Play a role in the incentivisation of stakeholders via the collection of transaction fees.
+* スパムに対する主要な防御ラインであり、トランザクションリプレイに対する2次的な防御ライン（最初のラインはメンプール）で、手数料控除と [`sequence`](./01-transactions.md#transaction-generation) チェックを行います。
+* シグネチャが有効であることを確認したり、送信者が手数料を支払うために十分な資金を持っていることを確認するなど、事前の _stateful_ な妥当性チェックを実行します。
+* 取引手数料の収集を通じてステークホルダーのインセンティブを提供します。
 
-`BaseApp` holds an `anteHandler` as parameter that is initialized in the [application's constructor](../basics/00-app-anatomy.md#application-constructor). The most widely used `anteHandler` is the [`auth` module](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/ante/ante.go).
 
-Click [here](../basics/04-gas-fees.md#antehandler) for more on the `anteHandler`.
+`BaseApp` は、コンストラクタで初期化される `anteHandler` をパラメータとして保持しています。最も広く使用されている `anteHandler` は、[`auth` モジュール](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/ante/ante.go) です。
+
+`anteHandler` に関する詳細は[こちら](../basics/04-gas-fees.md#antehandler)をクリックしてください。
 
 ### RunMsgs
 
-`RunMsgs` is called from `RunTx` with `runTxModeCheck` as parameter to check the existence of a route for each message the transaction, and with `execModeFinalize` to actually process the `sdk.Msg`s.
+`RunMsgs` は `RunTx` から呼び出され、パラメータとして `runTxModeCheck` を使用してトランザクション内の各メッセージに対するルートの存在をチェックし、`execModeFinalize` を使用して実際に `sdk.Msg` を処理します。
 
-First, it retrieves the `sdk.Msg`'s fully-qualified type name, by checking the `type_url` of the Protobuf `Any` representing the `sdk.Msg`. Then, using the application's [`msgServiceRouter`](#msg-service-router), it checks for the existence of `Msg` service method related to that `type_url`. At this point, if `mode == runTxModeCheck`, `RunMsgs` returns. Otherwise, if `mode == execModeFinalize`, the [`Msg` service](../building-modules/03-msg-services.md) RPC is executed, before `RunMsgs` returns.
+まず、Protobuf の `Any` が表す `sdk.Msg` の `type_url` をチェックして、`sdk.Msg` の完全修飾型名を取得します。次に、アプリケーションの [`msgServiceRouter`](#msg-service-router) を使用して、その `type_url` に関連する `Msg` サービスメソッドの存在をチェックします。この時点で、`mode == runTxModeCheck` ならば、`RunMsgs` は返ります。それ以外の場合、`mode == execModeFinalize` であれば、[`Msg` サービス](../building-modules/03-msg-services.md) RPC が実行され、`RunMsgs` は返ります。
 
 ### PostHandler
 
-`PostHandler` is similar to `AnteHandler`, but it, as the name suggests, executes custom post tx processing logic after [`RunMsgs`](#runmsgs) is called. `PostHandler` receives the `Result` of the the `RunMsgs` in order to enable this customizable behavior.
+`PostHandler` は `AnteHandler` に類似していますが、名前からわかるように、[`RunMsgs`](#runmsgs) の後にカスタムのトランザクション後処理ロジックを実行します。`PostHandler` は `RunMsgs` の結果を受け取り、このカスタマイズ可能な動作を可能にします。
 
-Like `AnteHandler`s, `PostHandler`s are theoretically optional, one use case for `PostHandler`s is transaction tips (enabled by default in simapp).
-Other use cases like unused gas refund can also be enabled by `PostHandler`s.
+`AnteHandler` と同様に、`PostHandler` は理論的にはオプションですが、トランザクションチップ（デフォルトで simapp で有効）などの使用例があります。他にも未使用のガスの払い戻しを `PostHandler` で有効にすることもできます。
+注意点として、`PostHandler` が失敗すると、`runMsgs` からのステートも元に戻され、トランザクションが失敗することになります。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/posthandler/post.go#L1-L15
 ```
 
-Note, when `PostHandler`s fail, the state from `runMsgs` is also reverted, effectively making the transaction fail.
+注意点として、`PostHandler`が失敗すると、`runMsgs`  からのステートも元に戻され、トランザクションが失敗することになります。
 
 ## Other ABCI Messages
 
 ### InitChain
 
-The [`InitChain` ABCI message](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#method-overview) is sent from the underlying CometBFT engine when the chain is first started. It is mainly used to **initialize** parameters and state like:
+[`InitChain` ABCI メッセージ](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#method-overview) は、チェーンが最初に開始されたときに基盤となる CometBFT エンジンから送信されます。これは主に以下のようなパラメータとステートの**初期化**に使用されます：
 
-* [Consensus Parameters](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_app_requirements.md#consensus-parameters) via `setConsensusParams`.
-* [`checkState` and `finalizeBlockState`](#state-updates) via `setState`.
-* The [block gas meter](../basics/04-gas-fees.md#block-gas-meter), with infinite gas to process genesis transactions.
 
-Finally, the `InitChain(req abci.RequestInitChain)` method of `BaseApp` calls the [`initChainer()`](../basics/00-app-anatomy.md#initchainer) of the application in order to initialize the main state of the application from the `genesis file` and, if defined, call the [`InitGenesis`](../building-modules/08-genesis.md#initgenesis) function of each of the application's modules.
+* [`setConsensusParams`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_app_requirements.md#consensus-parameters) 経由でコンセンサスパラメータ。
+* `setState` を介した [`checkState` および `finalizeBlockState`](#state-updates)。
+* ジェネシストランザクションを処理するための無限のガスを持つ [ブロックガスメーター](../basics/04-gas-fees.md#block-gas-meter)。
 
+最後に、`BaseApp` の `InitChain(req abci.RequestInitChain)` メソッドは、アプリケーションの [`initChainer()`](../basics/00-app-anatomy.md#initchainer) を呼び出して、`genesis file` からアプリケーションのメインステートを初期化し、定義されている場合は各アプリケーションモジュールの [`InitGenesis`](../building-modules/08-genesis.md#initgenesis) 関数を呼び出します。
 
 ### FinalizeBlock
 
-The [`FinalizeBlock` ABCI message](https://github.com/cometbft/cometbft/blob/v0.38.x/spec/abci/abci++_basic_concepts.md#method-overview) is sent from the underlying CometBFT engine when a block proposal created by the correct proposer is received. The previous `BeginBlock, DeliverTx and Endblock` calls are private methods on the BaseApp struct.
+[`FinalizeBlock` ABCI メッセージ](https://github.com/cometbft/cometbft/blob/v0.38.x/spec/abci/abci++_basic_concepts.md#method-overview) は、正しい提案者によって作成されたブロック提案が受信されたときに、基盤となる CometBFT エンジンから送信されます。前の `BeginBlock`、`DeliverTx`、`EndBlock` の呼び出しは、BaseApp 構造体のプライベートメソッドです。
 
 
 ```go reference 
@@ -431,55 +376,56 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/abci.go#L623
 
 #### BeginBlock 
 
-* Initialize [`finalizeBlockState`](#state-updates) with the latest header using the `req abci.RequestFinalizeBlock` passed as parameter via the `setState` function.
+* `setState` 関数を介して `req abci.RequestFinalizeBlock` をパラメータとして渡して、最新のヘッダーを使用して [`finalizeBlockState`](#state-updates) を初期化します。
 
   ```go reference
   https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#L682-L706
   ```
   
-  This function also resets the [main gas meter](../basics/04-gas-fees.md#main-gas-meter).
+  この関数はまた、[メインガスメーター](../basics/04-gas-fees.md#main-gas-meter) をリセットします。
 
-* Initialize the [block gas meter](../basics/04-gas-fees.md#block-gas-meter) with the `maxGas` limit. The `gas` consumed within the block cannot go above `maxGas`. This parameter is defined in the application's consensus parameters.
-* Run the application's [`beginBlocker()`](../basics/00-app-anatomy.md#beginblocker-and-endblock), which mainly runs the [`BeginBlocker()`](../building-modules/05-beginblock-endblock.md#beginblock) method of each of the application's modules.
-* Set the [`VoteInfos`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#voteinfo) of the application, i.e. the list of validators whose _precommit_ for the previous block was included by the proposer of the current block. This information is carried into the [`Context`](./02-context.md) so that it can be used during transaction execution and EndBlock.
+* `maxGas` 制限を使用して [ブロックガスメーター](../basics/04-gas-fees.md#block-gas-meter) を初期化します。ブロック内で消費される `gas` は `maxGas` を超えることはできません。このパラメータはアプリケーションのコンセンサスパラメータで定義されています。
+* アプリケーションの [`beginBlocker()`](../basics/00-app-anatomy.md#beginblocker-and-endblock) を実行します。これは主に、各アプリケーションモジュールの [`BeginBlocker()`](../building-modules/05-beginblock-endblock.md#beginblock) メソッドを実行します。
+* アプリケーションの [`VoteInfos`](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_methods.md#voteinfo) を設定します。つまり、前のブロックの _precommit_ が現在のブロックの提案者によって含まれたバリデータのリストです。この情報は [`Context`](./02-context.md) に保持され、トランザクションの実行および EndBlock で使用できるようになります。
 
 #### Transaction Execution
 
-When the underlying consensus engine receives a block proposal, each transaction in the block needs to be processed by the application. To that end, the underlying consensus engine sends the transactions in FinalizeBlock message to the application for each transaction in a sequential order.
+ブロック提案が基盤となるコンセンサスエンジンに受信されると、そのブロック内の各トランザクションはアプリケーションによって処理される必要があります。このため、基盤となるコンセンサスエンジンは、各トランザクションを順次処理するために、FinalizeBlockメッセージ内でトランザクションをアプリケーションに送信します。
 
-Before the first transaction of a given block is processed, a [volatile state](#state-updates) called `finalizeBlockState` is initialized during FinalizeBlock. This state is updated each time a transaction is processed via `FinalizeBlock`, and committed to the [main state](#main-state) when the block is [committed](#commit), after what it is set to `nil`.
+特定のブロックの最初のトランザクションが処理される前に、FinalizeBlock中に「finalizeBlockState」と呼ばれる[揮発性のステート](#state-updates)が初期化されます。このステートは、トランザクションが「FinalizeBlock」を介して処理されるたびに更新され、ブロックが[確定](#commit)されると[メインステート](#main-state)にコミットされ、その後に「nil」に設定されます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#LL708-L743
 ```
 
-Transaction execution within `FinalizeBlock` performs the **exact same steps as `CheckTx`**, with a little caveat at step 3 and the addition of a fifth step:
+`FinalizeBlock`内のトランザクション実行は、第3ステップでちょっとした注意が必要で、第5ステップが追加されることを除いて、**`CheckTx`と全く同じ手順**を踏みます。
 
-1. The `AnteHandler` does **not** check that the transaction's `gas-prices` is sufficient. That is because the `min-gas-prices` value `gas-prices` is checked against is local to the node, and therefore what is enough for one full-node might not be for another. This means that the proposer can potentially include transactions for free, although they are not incentivised to do so, as they earn a bonus on the total fee of the block they propose.
-2. For each `sdk.Msg` in the transaction, route to the appropriate module's Protobuf [`Msg` service](../building-modules/03-msg-services.md). Additional _stateful_ checks are performed, and the branched multistore held in `finalizeBlockState`'s `context` is updated by the module's `keeper`. If the `Msg` service returns successfully, the branched multistore held in `context` is written to `finalizeBlockState` `CacheMultiStore`.
+1. `AnteHandler`は、トランザクションの`gas-prices`が十分かどうかを**チェックしません**。なぜなら、`min-gas-prices`の値である`gas-prices`はノード内でローカルなものであり、そのため一つのフルノードにとって十分であっても、別のフルノードにとっては十分でない可能性があるからです。つまり、提案者は原則としてトランザクションを無料で含めることができますが、ブロックの総手数料にボーナスを獲得するため、実際にはそのような動機はありません。
+2. 各トランザクション内の`sdk.Msg`ごとに、適切なモジュールのProtobuf [`Msg`サービス](../building-modules/03-msg-services.md)にルーティングされます。追加の_状態_チェックが行われ、`finalizeBlockState`の`context`内に保持されているブランチングマルチストアは、モジュールの`keeper`によって更新されます。もし`Msg`サービスが成功すると、`context`内に保持されているブランチングマルチストアは、`finalizeBlockState`の`CacheMultiStore`に書き込まれます。
 
-During the additional fifth step outlined in (2), each read/write to the store increases the value of `GasConsumed`. You can find the default cost of each operation:
+
+(2) で概説されている追加の第5ステップでは、ストアへの各読み書きが`GasConsumed`の値を増加させます。各操作のデフォルトコストは以下の通りです：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/store/types/gas.go#L230-L241
 ```
 
-At any point, if `GasConsumed > GasWanted`, the function returns with `Code != 0` and the execution fails.
+任意のタイミングで、`GasConsumed > GasWanted` の場合、関数は `Code != 0` とともに実行が失敗します。
 
-Each transactions returns a response to the underlying consensus engine of type [`abci.ExecTxResult`](https://github.com/cometbft/cometbft/blob/v0.38.0-rc1/spec/abci/abci%2B%2B_methods.md#exectxresult). The response contains:
+各トランザクションは、種類が [`abci.ExecTxResult`](https://github.com/cometbft/cometbft/blob/v0.38.0-rc1/spec/abci/abci%2B%2B_methods.md#exectxresult) の基盤となるコンセンサスエンジンに対して応答を返します。この応答には以下が含まれます：
 
-* `Code (uint32)`: Response Code. `0` if successful.
-* `Data ([]byte)`: Result bytes, if any.
-* `Log (string):` The output of the application's logger. May be non-deterministic.
-* `Info (string):` Additional information. May be non-deterministic.
-* `GasWanted (int64)`: Amount of gas requested for transaction. It is provided by users when they generate the transaction.
-* `GasUsed (int64)`: Amount of gas consumed by transaction. During transaction execution, this value is computed by multiplying the standard cost of a transaction byte by the size of the raw transaction, and by adding gas each time a read/write to the store occurs.
-* `Events ([]cmn.KVPair)`: Key-Value tags for filtering and indexing transactions (eg. by account). See [`event`s](./08-events.md) for more.
-* `Codespace (string)`: Namespace for the Code.
+* `Code (uint32)`: 応答コード。成功の場合は `0`。
+* `Data ([]byte)`: 結果のバイト列、あれば。
+* `Log (string)`: アプリケーションのロガーの出力。非決定的な場合があります。
+* `Info (string)`: 付加情報。非決定的な場合があります。
+* `GasWanted (int64)`: トランザクションに要求されたガス量。トランザクションを生成する際にユーザーによって提供されます。
+* `GasUsed (int64)`: トランザクションによって消費されたガス量。トランザクションの実行中に、トランザクションバイトの標準コストを生のトランザクションのサイズで乗算し、ストアへの読み取り/書き込みごとにガスが加算されることで計算されます。
+* `Events ([]cmn.KVPair)`: トランザクションをフィルタリングおよびインデックス化するためのキー-値タグ（例：アカウント別）。詳細については [`event`s](./08-events.md) を参照してください。
+* `Codespace (string)`: コードの名前空間。
 
 #### EndBlock 
 
-EndBlock is run after transaction execution completes. It allows developers to have logic be executed at the end of each block. In the Cosmos SDK, the bulk EndBlock() method is to run the application's EndBlocker(), which mainly runs the EndBlocker() method of each of the application's modules.
+トランザクション実行が完了した後に `EndBlock` が実行されます。これにより、開発者は各ブロックの最後にロジックを実行することができます。Cosmos SDKでは、一括で `EndBlock()` メソッドを実行し、主にアプリケーションの各モジュールの `EndBlocker()` メソッドを実行するのが一般的です。
 
 ```go reference 
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#L747-L769
@@ -487,31 +433,31 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/baseapp.go#L74
 
 ### Commit
 
-The [`Commit` ABCI message](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#method-overview) is sent from the underlying CometBFT engine after the full-node has received _precommits_ from 2/3+ of validators (weighted by voting power). On the `BaseApp` end, the `Commit(res abci.ResponseCommit)` function is implemented to commit all the valid state transitions that occurred during `FinalizeBlock` and to reset state for the next block.
+[`Commit` ABCIメッセージ](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#method-overview)は、フルノードがバリデータの2/3以上（投票力による重み付け）から _precommits_ を受信した後、基盤となるCometBFTエンジンから送信されます。`BaseApp`側では、`Commit(res abci.ResponseCommit)` 関数が実装され、`FinalizeBlock`中に発生したすべての有効なステート遷移をコミットし、次のブロックのためにステートをリセットします。
 
-To commit state-transitions, the `Commit` function calls the `Write()` function on `finalizeBlockState.ms`, where `finalizeBlockState.ms` is a branched multistore of the main store `app.cms`. Then, the `Commit` function sets `checkState` to the latest header (obtained from `finalizeBlockState.ctx.BlockHeader`) and `finalizeBlockState` to `nil`.
+ステート遷移をコミットするために、`Commit`関数は`finalizeBlockState.ms`に対して`Write()`関数を呼び出します。ここで、`finalizeBlockState.ms`はメインストア`app.cms`のブランチ型マルチストアです。その後、`Commit`関数は`checkState`を最新のヘッダー（`finalizeBlockState.ctx.BlockHeader`から取得）に設定し、`finalizeBlockState`を`nil`に設定します。
 
-Finally, `Commit` returns the hash of the commitment of `app.cms` back to the underlying consensus engine. This hash is used as a reference in the header of the next block.
+最後に、`Commit`は`app.cms`のコミットのハッシュを基盤となるコンセンサスエンジンに返します。このハッシュは、次のブロックのヘッダー内で参照されます。
 
 ### Info
 
-The [`Info` ABCI message](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#info-methods) is a simple query from the underlying consensus engine, notably used to sync the latter with the application during a handshake that happens on startup. When called, the `Info(res abci.ResponseInfo)` function from `BaseApp` will return the application's name, version and the hash of the last commit of `app.cms`.
+[`Info` ABCIメッセージ](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#info-methods)は、基盤となるコンセンサスエンジンからのシンプルなクエリであり、特に起動時に行われるハンドシェイク中に後者をアプリケーションと同期させるために使用されます。呼び出されると、`BaseApp`からの`Info(res abci.ResponseInfo)`関数は、アプリケーションの名前、バージョン、および`app.cms`の最後のコミットのハッシュを返します。
 
 ### Query
 
-The [`Query` ABCI message](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#info-methods) is used to serve queries received from the underlying consensus engine, including queries received via RPC like CometBFT RPC. It used to be the main entrypoint to build interfaces with the application, but with the introduction of [gRPC queries](../building-modules/04-query-services.md) in Cosmos SDK v0.40, its usage is more limited. The application must respect a few rules when implementing the `Query` method, which are outlined [here](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_app_requirements.md#query).
+[`Query` ABCIメッセージ](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_basic_concepts.md#info-methods)は、基盤となるコンセンサスエンジンから受信したクエリを提供するために使用されます。これには、CometBFT RPCなどのRPCを介して受信したクエリも含まれます。これはかつてアプリケーションとのインターフェースを構築するための主要なエントリーポイントでしたが、Cosmos SDK v0.40での[gRPCクエリ](../building-modules/04-query-services.md)の導入により、その使用はより限定的となりました。アプリケーションは`Query`メソッドを実装する際にいくつかのルールを遵守する必要がありますが、これは[こちら](https://github.com/cometbft/cometbft/blob/v0.37.x/spec/abci/abci++_app_requirements.md#query)で説明されています。
 
-Each CometBFT `query` comes with a `path`, which is a `string` which denotes what to query. If the `path` matches a gRPC fully-qualified service method, then `BaseApp` will defer the query to the `grpcQueryRouter` and let it handle it like explained [above](#grpc-query-router). Otherwise, the `path` represents a query that is not (yet) handled by the gRPC router. `BaseApp` splits the `path` string with the `/` delimiter. By convention, the first element of the split string (`split[0]`) contains the category of `query` (`app`, `p2p`, `store` or `custom` ). The `BaseApp` implementation of the `Query(req abci.RequestQuery)` method is a simple dispatcher serving these 4 main categories of queries:
+各CometBFTの`query`には、`path`が含まれており、これは何をクエリするかを示す`string`です。もし`path`がgRPCの完全修飾サービスメソッドに一致する場合、`BaseApp`はクエリを`grpcQueryRouter`に委任し、それを[上記](#grpc-query-router)で説明した方法で処理させます。それ以外の場合、`path`はまだgRPCルーターで処理されていないクエリを表します。`BaseApp`は`path`文字列を `/` デリミタで分割します。慣例として、分割された文字列の最初の要素（`split[0]`）には、`query`のカテゴリ（`app`、`p2p`、`store`、または`custom`）が含まれています。`BaseApp`の`Query(req abci.RequestQuery)` メソッドの実装は、次の4つの主要なクエリカテゴリを処理するシンプルなディスパッチャです：
 
-* Application-related queries like querying the application's version, which are served via the `handleQueryApp` method.
-* Direct queries to the multistore, which are served by the `handlerQueryStore` method. These direct queries are different from custom queries which go through `app.queryRouter`, and are mainly used by third-party service provider like block explorers.
-* P2P queries, which are served via the `handleQueryP2P` method. These queries return either `app.addrPeerFilter` or `app.ipPeerFilter` that contain the list of peers filtered by address or IP respectively. These lists are first initialized via `options` in `BaseApp`'s [constructor](#constructor).
+* アプリケーション関連のクエリ（アプリケーションのバージョンをクエリするなど）は、`handleQueryApp` メソッドを介して提供されます。
+* マルチストアへの直接クエリは、`handlerQueryStore` メソッドによって提供されます。これらの直接クエリは、カスタムクエリが `app.queryRouter` を介して行われるのとは異なり、主にブロックエクスプローラなどのサードパーティサービスプロバイダによって使用されます。
+* P2Pクエリは、`handleQueryP2P` メソッドを介して提供されます。これらのクエリは、アドレスまたはIPによってフィルタリングされたピアのリストを含む `app.addrPeerFilter` または `app.ipPeerFilter` を返します。これらのリストは、`BaseApp`の[コンストラクタ](#constructor)内の `options` を介して最初に初期化されます。
 
 ### ExtendVote
 
-`ExtendVote` allows an application to extend a pre-commit vote with arbitrary data. This process does NOT have be deterministic and the data returned can be unique to the validator process.
+`ExtendVote` は、アプリケーションがプリコミット投票に任意のデータを追加することを可能にします。このプロセスは決定的である必要はなく、返されるデータはバリデータプロセスに固有のものである可能性があります。
 
-In the Cosmos-SDK this is implemented as a NoOp:
+Cosmos-SDKでは、これはNoOpとして実装されています：
 
 ``` go reference 
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/abci_utils.go#L274-L281
@@ -519,9 +465,9 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/abci_utils.go#
 
 ### VerifyVoteExtension
 
-`VerifyVoteExtension` allows an application to verify that the data returned by `ExtendVote` is valid. This process does NOT have be deterministic and the data returned can be unique to the validator process.
+`VerifyVoteExtension` は、`ExtendVote` によって返されるデータが有効であることをアプリケーションが検証することを可能にします。このプロセスは決定的である必要はなく、返されるデータはバリデータプロセスに固有のものである可能性があります。
 
-In the Cosmos-SDK this is implemented as a NoOp:
+Cosmos-SDKでは、これはNoOpとして実装されています：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/baseapp/abci_utils.go#L282-L288
