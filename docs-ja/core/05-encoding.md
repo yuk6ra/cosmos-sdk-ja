@@ -5,7 +5,7 @@ sidebar_position: 1
 # Encoding
 
 :::note Synopsis
-While encoding in the Cosmos SDK used to be mainly handled by `go-amino` codec, the Cosmos SDK is moving towards using `gogoprotobuf` for both state and client-side encoding.
+Cosmos SDKにおけるエンコーディングは、以前は主に`go-amino`コーデックで処理されていましたが、Cosmos SDKはステートとクライアント側のエンコーディングの両方に`gogoprotobuf`の使用に移行しています。
 :::
 
 :::note Pre-requisite Readings
@@ -16,66 +16,36 @@ While encoding in the Cosmos SDK used to be mainly handled by `go-amino` codec, 
 
 ## Encoding
 
-The Cosmos SDK utilizes two binary wire encoding protocols, [Amino](https://github.com/tendermint/go-amino/) which is an object encoding specification and [Protocol Buffers](https://developers.google.com/protocol-buffers), a subset of Proto3 with an extension for
-interface support. See the [Proto3 spec](https://developers.google.com/protocol-buffers/docs/proto3)
-for more information on Proto3, which Amino is largely compatible with (but not with Proto2).
+Cosmos SDKは、2つのバイナリワイヤーエンコーディングプロトコル、オブジェクトエンコーディング仕様である[Amino](https://github.com/tendermint/go-amino/)と、Proto3のサブセットでインターフェースサポートの拡張機能を持つ[Protocol Buffers](https://developers.google.com/protocol-buffers)を使用しています。Proto3に関する詳細は、[Proto3仕様](https://developers.google.com/protocol-buffers/docs/proto3)を参照してください。
 
-Due to Amino having significant performance drawbacks, being reflection-based, and
-not having any meaningful cross-language/client support, Protocol Buffers, specifically
-[gogoprotobuf](https://github.com/cosmos/gogoproto/), is being used in place of Amino.
-Note, this process of using Protocol Buffers over Amino is still an ongoing process.
+AminoはProto3と主に互換性がありますが（Proto2とは互換性がありません）、Aminoは重要なクロス言語/クライアントサポートを持たず、性能上の欠点があり、リフレクションベースであるため、Protocol Buffers、特に[gogoprotobuf](https://github.com/cosmos/gogoproto/)がAminoの代わりに使用されています。ただし、Protocol BuffersをAminoの代わりに使用するプロセスはまだ進行中です。
 
-Binary wire encoding of types in the Cosmos SDK can be broken down into two main
-categories, client encoding and store encoding. Client encoding mainly revolves
-around transaction processing and signing, whereas store encoding revolves around
-types used in state-machine transitions and what is ultimately stored in the Merkle
-tree.
+Cosmos SDKの型のバイナリワイヤーエンコーディングは、主に2つの主要なカテゴリ、クライアントエンコーディングとストアエンコーディングに分けることができます。クライアントエンコーディングは主にトランザクション処理と署名に関連し、一方、ストアエンコーディングはステートマシンの遷移で使用される型や最終的にMerkleツリーに格納される内容に関連します。
 
-For store encoding, protobuf definitions can exist for any type and will typically
-have an Amino-based "intermediary" type. Specifically, the protobuf-based type
-definition is used for serialization and persistence, whereas the Amino-based type
-is used for business logic in the state-machine where they may convert back-n-forth.
-Note, the Amino-based types may slowly be phased-out in the future, so developers
-should take note to use the protobuf message definitions where possible.
+ストアエンコーディングでは、プロトコルバッファ定義が任意の型に存在し、通常Aminoベースの「中間」型を持っています。具体的には、プロトコルバッファベースの型定義はシリアル化と永続性に使用され、一方、Aminoベースの型はビジネスロジックに使用され、ステートマシン内で相互変換されることがあります。ただし、将来的にAminoベースの型は徐々に段階的に廃止される可能性があるため、開発者は可能な限りプロトコルバッファメッセージ定義を使用するよう注意する必要があります。
 
-In the `codec` package, there exists two core interfaces, `BinaryCodec` and `JSONCodec`,
-where the former encapsulates the current Amino interface except it operates on
-types implementing the latter instead of generic `interface{}` types.
+`codec`パッケージには、`BinaryCodec`と`JSONCodec`という2つのコアインターフェースが存在し、前者は現在のAminoインターフェースをカプセル化しており、通常の`interface{}`型ではなく、後者を実装する型で動作します。
 
-In addition, there exists two implementations of `Codec`. The first being
-`AminoCodec`, where both binary and JSON serialization is handled via Amino. The
-second being `ProtoCodec`, where both binary and JSON serialization is handled
-via Protobuf.
+さらに、`Codec`の2つの実装が存在します。1つ目は`AminoCodec`で、バイナリとJSONのシリアル化がAminoを介して処理されます。2つ目は`ProtoCodec`で、バイナリとJSONのシリアル化がProtobufを介して処理されます。
 
-This means that modules may use Amino or Protobuf encoding, but the types must
-implement `ProtoMarshaler`. If modules wish to avoid implementing this interface
-for their types, they may use an Amino codec directly.
+これにより、モジュールはAminoまたはProtobufエンコーディングを使用できますが、型は`ProtoMarshaler`を実装する必要があります。モジュールが自分の型に対してこのインターフェースを実装するのを避けたい場合は、直接Aminoコーデックを使用できます。
 
 ### Amino
 
-Every module uses an Amino codec to serialize types and interfaces. This codec typically
-has types and interfaces registered in that module's domain only (e.g. messages),
-but there are exceptions like `x/gov`. Each module exposes a `RegisterLegacyAminoCodec` function
-that allows a user to provide a codec and have all the types registered. An application
-will call this method for each necessary module.
+各モジュールは、型やインターフェースをシリアライズするためにAminoコーデックを使用します。このコーデックには通常、そのモジュールのドメイン内でのみ登録された型やインターフェース（例：メッセージ）が含まれますが、`x/gov`のような例外もあります。各モジュールは、ユーザーがコーデックを提供してすべての型を登録できる`RegisterLegacyAminoCodec`
 
-Where there is no protobuf-based type definition for a module (see below), Amino
-is used to encode and decode raw wire bytes to the concrete type or interface:
+モジュールにプロトコルバッファベースの型定義がない場合（以下を参照）、Aminoを使用して生のワイヤーバイトを具体的な型やインターフェースにエンコードおよびデコードします。
 
 ```go
 bz := keeper.cdc.MustMarshal(typeOrInterface)
 keeper.cdc.MustUnmarshal(bz, &typeOrInterface)
 ```
 
-Note, there are length-prefixed variants of the above functionality and this is
-typically used for when the data needs to be streamed or grouped together
-(e.g. `ResponseDeliverTx.Data`)
+注意：上記の機能には長さプレフィックス付きのバリアントもあり、これはデータをストリーム化するか、グループ化する必要がある場合に通常使用されます（例：`ResponseDeliverTx.Data`）。
 
 #### Authz authorizations and Gov/Group proposals
 
-Since authz's `MsgExec` and `MsgGrant` message types, as well as gov's and group's `MsgSubmitProposal`, can contain different messages instances, it is important that developers
-add the following code inside the `init` method of their module's `codec.go` file:
-
+authzの`MsgExec`および`MsgGrant`メッセージタイプ、およびgovとgroupの`MsgSubmitProposal`は異なるメッセージインスタンスを含む可能性があるため、開発者はこれらのメッセージの`init`メソッド内で次のコードを追加する必要があります。モジュールの`codec.go`ファイル：
 ```go
 import (
   authzcodec "github.com/cosmos/cosmos-sdk/x/authz/codec"
@@ -91,43 +61,37 @@ init() {
     RegisterLegacyAminoCodec(groupcodec.Amino)
 }
 ```
-
-This will allow the `x/authz` module to properly serialize and de-serializes `MsgExec` instances using Amino, 
-which is required when signing this kind of messages using a Ledger. 
+これにより、`x/authz`モジュールは、Aminoを使用して`MsgExec`インスタンスを適切にシリアライズおよびデシリアライズできるようになります。このようなメッセージをLedgerで署名する際に必要です。
 
 ### Gogoproto
 
-Modules are encouraged to utilize Protobuf encoding for their respective types. In the Cosmos SDK, we use the [Gogoproto](https://github.com/cosmos/gogoproto) specific implementation of the Protobuf spec that offers speed and DX improvements compared to the official [Google protobuf implementation](https://github.com/protocolbuffers/protobuf).
+各モジュールは、それぞれの型に対してProtobufエンコーディングを活用することをお勧めします。Cosmos SDKでは、公式の[Google protobuf実装](https://github.com/protocolbuffers/protobuf)と比較して、速度と開発体験の向上を提供するProtobuf仕様の[Gogoproto](https://github.com/cosmos/gogoproto)特有の実装を使用しています。
 
 ### Guidelines for protobuf message definitions
 
-In addition to [following official Protocol Buffer guidelines](https://developers.google.com/protocol-buffers/docs/proto3#simple), we recommend using these annotations in .proto files when dealing with interfaces:
+[公式のProtocol Bufferガイドラインに従う](https://developers.google.com/protocol-buffers/docs/proto3#simple)ことに加えて、インターフェースを扱う場合に.protoファイルで次の注釈を使用することをお勧めします：
 
-* use `cosmos_proto.accepts_interface` to annote `Any` fields that accept interfaces
-    * pass the same fully qualified name as `protoName` to `InterfaceRegistry.RegisterInterface`
-    * example: `(cosmos_proto.accepts_interface) = "cosmos.gov.v1beta1.Content"` (and not just `Content`)
-* annotate interface implementations with `cosmos_proto.implements_interface`
-    * pass the same fully qualified name as `protoName` to `InterfaceRegistry.RegisterInterface`
-    * example: `(cosmos_proto.implements_interface) = "cosmos.authz.v1beta1.Authorization"` (and not just `Authorization`)
+- `cosmos_proto.accepts_interface`を使用して、インターフェースを受け入れる`Any`フィールドを注釈する
+    - `protoName`として`InterfaceRegistry.RegisterInterface`に完全修飾名を指定する
+    - 例：`(cosmos_proto.accepts_interface) = "cosmos.gov.v1beta1.Content"`（単に`Content`ではなく）
+- インターフェースの実装を`cosmos_proto.implements_interface`で注釈する
+    - `protoName`として`InterfaceRegistry.RegisterInterface`に完全修飾名を指定する
+    - 例：`(cosmos_proto.implements_interface) = "cosmos.authz.v1beta1.Authorization"`（単に`Authorization`ではなく）
 
-Code generators can then match the `accepts_interface` and `implements_interface` annotations to know whether some Protobuf messages are allowed to be packed in a given `Any` field or not.
+その後、コード生成ツールは、`accepts_interface`および`implements_interface`の注釈と、特定の`Any`フィールドにProtobufメッセージをパックすることが許可されているかどうかを判断します。
 
 ### Transaction Encoding
 
-Another important use of Protobuf is the encoding and decoding of
-[transactions](./01-transactions.md). Transactions are defined by the application or
-the Cosmos SDK but are then passed to the underlying consensus engine to be relayed to
-other peers. Since the underlying consensus engine is agnostic to the application,
-the consensus engine accepts only transactions in the form of raw bytes.
+Protobufのもう一つの重要な用途は、[トランザクション](./01-transactions.md)のエンコーディングとデコーディングです。トランザクションは、アプリケーションまたはCosmos SDKによって定義されますが、その後、基盤となるコンセンサスエンジンに渡され、他のピアに中継されます。基盤となるコンセンサスエンジンはアプリケーションに対して無関心であるため、コンセンサスエンジンは生のバイト形式のトランザクションのみを受け入れます。
 
-* The `TxEncoder` object performs the encoding.
-* The `TxDecoder` object performs the decoding.
+* `TxEncoder`オブジェクトはエンコーディングを実行します。
+* `TxDecoder`オブジェクトはデコーディングを実行します。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/tx_msg.go#L91-L95
 ```
 
-A standard implementation of both these objects can be found in the [`auth/tx` module](../modules/auth/tx/README.md):
+これらのオブジェクトの標準的な実装は、[`auth/tx`モジュール](../modules/auth/tx/README.md)にあります：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/tx/decoder.go
@@ -137,11 +101,11 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/tx/decoder.go
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/tx/encoder.go
 ```
 
-See [ADR-020](../architecture/adr-020-protobuf-transaction-encoding.md) for details of how a transaction is encoded.
+トランザクションのエンコード方法の詳細については、[ADR-020](../architecture/adr-020-protobuf-transaction-encoding.md)をご覧ください。
 
 ### Interface Encoding and Usage of `Any`
 
-The Protobuf DSL is strongly typed, which can make inserting variable-typed fields difficult. Imagine we want to create a `Profile` protobuf message that serves as a wrapper over [an account](../basics/03-accounts.md):
+Protobuf DSLは強く型付けされており、変数型のフィールドを挿入することが難しいことがあります。`Profile`というProtobufメッセージを作成したいと考えてみましょう。これは、[アカウント](../basics/03-accounts.md)の上にラッパーとして機能します：
 
 ```protobuf
 message Profile {
@@ -152,13 +116,13 @@ message Profile {
 }
 ```
 
-In this `Profile` example, we hardcoded `account` as a `BaseAccount`. However, there are several other types of [user accounts related to vesting](../modules/auth/1-vesting.md), such as `BaseVestingAccount` or `ContinuousVestingAccount`. All of these accounts are different, but they all implement the `AccountI` interface. How would you create a `Profile` that allows all these types of accounts with an `account` field that accepts an `AccountI` interface?
+この`Profile`の例では、`account`を`BaseAccount`としてハードコードしています。しかし、[ベスティングに関連するユーザーアカウント](../modules/auth/1-vesting.md)には他にも`BaseVestingAccount`や`ContinuousVestingAccount`など、いくつかの異なるタイプのアカウントがあります。これらすべてのアカウントは異なりますが、すべて`AccountI`インターフェースを実装しています。どのようにして、これらのタイプのアカウントを受け入れる`AccountI`インターフェースを持つ`account`フィールドを持つ`Profile`を作成できるでしょうか？
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/types/account.go#L15-L32
 ```
 
-In [ADR-019](../architecture/adr-019-protobuf-state-encoding.md), it has been decided to use [`Any`](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto)s to encode interfaces in protobuf. An `Any` contains an arbitrary serialized message as bytes, along with a URL that acts as a globally unique identifier for and resolves to that message's type. This strategy allows us to pack arbitrary Go types inside protobuf messages. Our new `Profile` then looks like:
+[ADR-019](../architecture/adr-019-protobuf-state-encoding.md)では、protobuf内のインターフェースをエンコードするために[`Any`](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto)を使用することが決定されました。`Any`は、任意のシリアライズされたメッセージと、そのメッセージのタイプをグローバルに一意の識別子として機能し、そのタイプに解決するURLを含んでいます。この戦略により、任意のGoの型をprotobufメッセージ内に詰め込むことができます。新しい`Profile`は次のようになります：
 
 ```protobuf
 message Profile {
@@ -171,7 +135,7 @@ message Profile {
 }
 ```
 
-To add an account inside a profile, we need to "pack" it inside an `Any` first, using `codectypes.NewAnyWithValue`:
+プロファイル内にアカウントを追加するには、まず`codectypes.NewAnyWithValue`を使用して、アカウントを`Any`内に「詰め込む」必要があります：
 
 ```go
 var myAccount AccountI
@@ -194,9 +158,9 @@ bz, err := cdc.Marshal(profile)
 jsonBz, err := cdc.MarshalJSON(profile)
 ```
 
-To summarize, to encode an interface, you must 1/ pack the interface into an `Any` and 2/ marshal the `Any`. For convenience, the Cosmos SDK provides a `MarshalInterface` method to bundle these two steps. Have a look at [a real-life example in the x/auth module](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/keeper/keeper.go#L240-L243).
+要約すると、インターフェースをエンコードするには、1/ インターフェースを`Any`内に詰め込み、2/ `Any`をマーシャルする必要があります。便宜のため、Cosmos SDKはこれらの2つのステップをまとめる`MarshalInterface`メソッドを提供しています。[x/authモジュールの実際の例](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/auth/keeper/keeper.go#L240-L243)をご覧ください。
 
-The reverse operation of retrieving the concrete Go type from inside an `Any`, called "unpacking", is done with the `GetCachedValue()` on `Any`.
+`Any`内から具体的なGoの型を取得する逆の操作（「アンパック」）は、`Any`上の`GetCachedValue()`を使用して行われます。
 
 ```go
 profileBz := ... // The proto-encoded bytes of a Profile, e.g. retrieved through gRPC.
@@ -212,7 +176,7 @@ fmt.Printf("%T\n", myProfile.Account.GetCachedValue()) // Prints "BaseAccount", 
 accAddr := myProfile.Account.GetCachedValue().(AccountI).GetAddress()
 ```
 
-It is important to note that for `GetCachedValue()` to work, `Profile` (and any other structs embedding `Profile`) must implement the `UnpackInterfaces` method:
+`GetCachedValue()`が機能するためには、`Profile`（および`Profile`を埋め込む他の構造体）が`UnpackInterfaces`メソッドを実装している必要があることに注意してください：
 
 ```go
 func (p *Profile) UnpackInterfaces(unpacker codectypes.AnyUnpacker) error {
@@ -225,22 +189,22 @@ func (p *Profile) UnpackInterfaces(unpacker codectypes.AnyUnpacker) error {
 }
 ```
 
-The `UnpackInterfaces` gets called recursively on all structs implementing this method, to allow all `Any`s to have their `GetCachedValue()` correctly populated.
+`UnpackInterfaces`は、このメソッドを実装するすべての構造体に再帰的に呼び出され、すべての`Any`の`GetCachedValue()`が正しく設定されるようにします。
 
-For more information about interface encoding, and especially on `UnpackInterfaces` and how the `Any`'s `type_url` gets resolved using the `InterfaceRegistry`, please refer to [ADR-019](../architecture/adr-019-protobuf-state-encoding.md).
+インターフェースのエンコードに関する詳細情報、特に`UnpackInterfaces`および`Any`の`type_url`が`InterfaceRegistry`を使用して解決される方法については、[ADR-019](../architecture/adr-019-protobuf-state-encoding.md)を参照してください。
 
 #### `Any` Encoding in the Cosmos SDK
 
-The above `Profile` example is a fictive example used for educational purposes. In the Cosmos SDK, we use `Any` encoding in several places (non-exhaustive list):
+上記の例の`Profile`は、教育目的で使用される架空の例です。Cosmos SDKでは、`Any`エンコーディングをいくつかの場所で使用しています（網羅的なリストではありません）：
 
-* the `cryptotypes.PubKey` interface for encoding different types of public keys,
-* the `sdk.Msg` interface for encoding different `Msg`s in a transaction,
-* the `AccountI` interface for encodinig different types of accounts (similar to the above example) in the x/auth query responses,
-* the `Evidencei` interface for encoding different types of evidences in the x/evidence module,
-* the `AuthorizationI` interface for encoding different types of x/authz authorizations,
-* the [`Validator`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/types/staking.pb.go#L340-L377) struct that contains information about a validator.
+- 異なる種類の公開鍵をエンコードするための`cryptotypes.PubKey`インターフェース
+- トランザクション内の異なる`Msg`をエンコードするための`sdk.Msg`インターフェース
+- x/authのクエリ応答内の異なるアカウントの種類（上記の例と類似）をエンコードするための`AccountI`インターフェース
+- x/evidenceモジュール内の異なる種類のエビデンスをエンコードするための`Evidencei`インターフェース
+- x/authz認可の異なる種類をエンコードするための`AuthorizationI`インターフェース
+- バリデータに関する情報を含む[`Validator`](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/types/staking.pb.go#L340-L377)構造体
 
-A real-life example of encoding the pubkey as `Any` inside the Validator struct in x/staking is shown in the following example:
+x/staking内のValidator構造体内で公開鍵を`Any`としてエンコードする実際の例は、以下の通りです：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/types/validator.go#L41-L64
@@ -248,20 +212,20 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/x/staking/types/valida
 
 #### `Any`'s TypeURL
 
-When packing a protobuf message inside an `Any`, the message's type is uniquely defined by its type URL, which is the message's fully qualified name prefixed by a `/` (slash) character. In some implementations of `Any`, like the gogoproto one, there's generally [a resolvable prefix, e.g. `type.googleapis.com`](https://github.com/gogo/protobuf/blob/b03c65ea87cdc3521ede29f62fe3ce239267c1bc/protobuf/google/protobuf/any.proto#L87-L91). However, in the Cosmos SDK, we made the decision to not include such prefix, to have shorter type URLs. The Cosmos SDK's own `Any` implementation can be found in `github.com/cosmos/cosmos-sdk/codec/types`.
+protobufメッセージを`Any`内に詰め込む際、メッセージのタイプはそのタイプURLによって一意に定義されます。タイプURLは、メッセージの完全修飾名を`/`（スラッシュ）文字で前置したものです。gogoprotoなどの一部の`Any`の実装では、通常、[解決可能なプレフィックスがあります（例：`type.googleapis.com`）](https://github.com/gogo/protobuf/blob/b03c65ea87cdc3521ede29f62fe3ce239267c1bc/protobuf/google/protobuf/any.proto#L87-L91)。ただし、Cosmos SDKでは、タイプURLを短くするためにそのようなプレフィックスを含めないことを決定しました。Cosmos SDKの`Any`の実装は`github.com/cosmos/cosmos-sdk/codec/types`にあります。
 
-The Cosmos SDK is also switching away from gogoproto to the official `google.golang.org/protobuf` (known as the Protobuf API v2). Its default `Any` implementation also contains the [`type.googleapis.com`](https://github.com/protocolbuffers/protobuf-go/blob/v1.28.1/types/known/anypb/any.pb.go#L266) prefix. To maintain compatibility with the SDK, the following methods from `"google.golang.org/protobuf/types/known/anypb"` should not be used:
+Cosmos SDKは、gogoprotoから公式の`google.golang.org/protobuf`（Protobuf API v2としても知られる）に切り替えています。そのデフォルトの`Any`の実装には[`type.googleapis.com`](https://github.com/protocolbuffers/protobuf-go/blob/v1.28.1/types/known/anypb/any.pb.go#L266)プレフィックスも含まれています。SDKとの互換性を維持するためには、「google.golang.org/protobuf/types/known/anypb」からの以下のメソッドは使用しないでください：
 
 * `anypb.New`
 * `anypb.MarshalFrom`
 * `anypb.Any#MarshalFrom`
 
-Instead, the Cosmos SDK provides helper functions in `"github.com/cosmos/cosmos-proto/anyutil"`, which create an official `anypb.Any` without inserting the prefixes:
+代わりに、Cosmos SDKは「`github.com/cosmos/cosmos-proto/anyutil`」にヘルパー関数を提供しており、公式の「anypb.Any」をプレフィックスを挿入せずに作成することができます：
 
 * `anyutil.New`
 * `anyutil.MarshalFrom`
 
-For example, to pack a `sdk.Msg` called `internalMsg`, use:
+例えば、`sdk.Msg`の「internalMsg」を詰め込む場合、次のように使用します：
 
 ```diff
 import (
@@ -291,19 +255,15 @@ Protobuf types can be defined to encode:
 
 #### Naming and conventions
 
-We encourage developers to follow industry guidelines: [Protocol Buffers style guide](https://developers.google.com/protocol-buffers/docs/style)
-and [Buf](https://buf.build/docs/style-guide), see more details in [ADR 023](../architecture/adr-023-protobuf-naming.md)
+開発者には、業界のガイドラインに従うことをお勧めします: [Protocol Buffersスタイルガイド](https://developers.google.com/protocol-buffers/docs/style)および[Buf](https://buf.build/docs/style-guide)。詳細については、[ADR 023](../architecture/adr-023-protobuf-naming.md)をご覧ください。
 
 ### How to update modules to protobuf encoding
 
-If modules do not contain any interfaces (e.g. `Account` or `Content`), then they
-may simply migrate any existing types that
-are encoded and persisted via their concrete Amino codec to Protobuf (see 1. for further guidelines) and accept a `Marshaler` as the codec which is implemented via the `ProtoCodec`
-without any further customization.
+もしモジュールにインターフェース（例：`Account`や`Content`）が含まれていない場合、既存の型を単にマイグレーションすることができます。これらの型は、具体的なAminoコーデックを使用してエンコードおよび永続化されているものです（詳細についてはガイドライン1.を参照）。その際、コーデックとして`ProtoCodec`を使用し、さらなるカスタマイズは必要ありません。
 
-However, if a module type composes an interface, it must wrap it in the `sdk.Any` (from `/types` package) type. To do that, a module-level .proto file must use [`google.protobuf.Any`](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto) for respective message type interface types.
+しかし、もしモジュールの型がインターフェースを組み合わせている場合、その型は`sdk.Any`（`/types`パッケージからのもの）でラップする必要があります。そのために、モジュールレベルの.protoファイルで、対応するメッセージ型インターフェースに対して[`google.protobuf.Any`](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto)を使用する必要があります。
 
-For example, in the `x/evidence` module defines an `Evidence` interface, which is used by the `MsgSubmitEvidence`. The structure definition must use `sdk.Any` to wrap the evidence file. In the proto file we define it as follows:
+例えば、`x/evidence`モジュールでは`Evidence`インターフェースが定義されており、`MsgSubmitEvidence`で使用されています。構造の定義は、証拠ファイルをラップするために`sdk.Any`を使用する必要があります。.protoファイルでは以下のように定義します：
 
 ```protobuf
 // proto/cosmos/evidence/v1beta1/tx.proto
@@ -314,15 +274,15 @@ message MsgSubmitEvidence {
 }
 ```
 
-The Cosmos SDK `codec.Codec` interface provides support methods `MarshalInterface` and `UnmarshalInterface` to easy encoding of state to `Any`.
+Cosmos SDKの`codec.Codec`インターフェースは、状態を`Any`にエンコードするためのサポートメソッド`MarshalInterface`と`UnmarshalInterface`を提供しています。
 
-Module should register interfaces using `InterfaceRegistry` which provides a mechanism for registering interfaces: `RegisterInterface(protoName string, iface interface{}, impls ...proto.Message)` and implementations: `RegisterImplementations(iface interface{}, impls ...proto.Message)` that can be safely unpacked from Any, similarly to type registration with Amino:
+モジュールは、インターフェースを`InterfaceRegistry`を使用して登録する必要があります。これには、インターフェースを登録するメカニズムが提供されています：`RegisterInterface(protoName string, iface interface{}, impls ...proto.Message)`および実装：`RegisterImplementations(iface interface{}, impls ...proto.Message)`。これらは、Aminoの型登録と同様にAnyから安全にアンパックできるものです：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/codec/types/interface_registry.go#L28-L75
 ```
 
-In addition, an `UnpackInterfaces` phase should be introduced to deserialization to unpack interfaces before they're needed. Protobuf types that contain a protobuf `Any` either directly or via one of their members should implement the `UnpackInterfacesMessage` interface:
+さらに、デシリアライズ時には`UnpackInterfaces`フェーズを導入して、必要になる前にインターフェースをアンパックする必要があります。直接またはメンバーのいずれかを介してprotobufの`Any`を含むProtobufタイプは、`UnpackInterfacesMessage`インターフェースを実装する必要があります。
 
 ```go
 type UnpackInterfacesMessage interface {
