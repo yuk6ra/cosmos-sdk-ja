@@ -5,65 +5,65 @@ sidebar_position: 1
 # Command-Line Interface
 
 :::note Synopsis
-This document describes how command-line interface (CLI) works on a high-level, for an [**application**](../basics/00-app-anatomy.md). A separate document for implementing a CLI for a Cosmos SDK [**module**](../building-modules/01-intro.md) can be found [here](../building-modules/09-module-interfaces.md#cli).
+この文書では、高レベルでコマンドラインインターフェース（CLI）の動作について説明します。[**アプリケーション**](../basics/00-app-anatomy.md)向けのCLIの実装については、別の文書で説明します。Cosmos SDK [**モジュール**](../building-modules/01-intro.md)用のCLIの実装については、[こちら](../building-modules/09-module-interfaces.md#cli)を参照してください。
 :::
 
 ## Command-Line Interface
 
 ### Example Command
 
-There is no set way to create a CLI, but Cosmos SDK modules typically use the [Cobra Library](https://github.com/spf13/cobra). Building a CLI with Cobra entails defining commands, arguments, and flags. [**Commands**](#root-command) understand the actions users wish to take, such as `tx` for creating a transaction and `query` for querying the application. Each command can also have nested subcommands, necessary for naming the specific transaction type. Users also supply **Arguments**, such as account numbers to send coins to, and [**Flags**](#flags) to modify various aspects of the commands, such as gas prices or which node to broadcast to.
+CLIの作成方法には決まった方法はありませんが、Cosmos SDKモジュールでは通常、[Cobraライブラリ](https://github.com/spf13/cobra)が使用されます。Cobraを使用してCLIを構築する際には、コマンド、引数、フラグを定義する必要があります。[**コマンド**](#root-command)は、ユーザーが実行したいアクションを理解します。たとえば、トランザクションを作成するための `tx` や、アプリケーションをクエリするための `query` などです。それぞれのコマンドには、特定のトランザクションタイプを指定するために必要なネストされたサブコマンドも含まれます。ユーザーはまた、コインを送信するためのアカウント番号などの**引数**と、コマンドのさまざまな側面を変更するための[**フラグ**](#flags)を提供します。これにはガス料金や送信先ノードなどが含まれます。
 
-Here is an example of a command a user might enter to interact with the simapp CLI `simd` in order to send some tokens:
+以下は、ユーザーがいくつかのトークンを送信するために simapp CLI `simd` とやり取りするために入力する可能性のあるコマンドの例です：
 
 ```bash
 simd tx bank send $MY_VALIDATOR_ADDRESS $RECIPIENT 1000stake --gas auto --gas-prices <gasPrices>
 ```
 
-The first four strings specify the command:
+最初の4つの文字列はコマンドを指定します：
 
-* The root command for the entire application `simd`.
-* The subcommand `tx`, which contains all commands that let users create transactions.
-* The subcommand `bank` to indicate which module to route the command to ([`x/bank`](../modules/bank/README.md) module in this case).
-* The type of transaction `send`.
+* アプリケーション全体のルートコマンド `simd`。
+* ユーザーがトランザクションを作成するためのすべてのコマンドを含むサブコマンド `tx`。
+* コマンドをルーティングするためのモジュールを示すサブコマンド `bank`（この場合は[`x/bank`](../modules/bank/README.md)モジュール）。
+* トランザクションのタイプ `send`。
 
-The next two strings are arguments: the `from_address` the user wishes to send from, the `to_address` of the recipient, and the `amount` they want to send. Finally, the last few strings of the command are optional flags to indicate how much the user is willing to pay in fees (calculated using the amount of gas used to execute the transaction and the gas prices provided by the user).
+次の2つの文字列は引数です：送信元の `from_address`、受信者の `to_address`、送信する `amount`。最後に、コマンドの最後のいくつかの文字列は、トランザクションを実行するために使用されるガスの量とユーザーが提供したガス価格に基づいていくら支払うかを示すオプションのフラグです。
 
-The CLI interacts with a [node](../core/03-node.md) to handle this command. The interface itself is defined in a `main.go` file.
+このCLIは、このコマンドを処理するために[ノード](../core/03-node.md)とやり取りします。インターフェース自体は、`main.go` ファイルで定義されています。
 
 ### Building the CLI
 
-The `main.go` file needs to have a `main()` function that creates a root command, to which all the application commands will be added as subcommands. The root command additionally handles:
+`main.go` ファイルには、すべてのアプリケーションコマンドがサブコマンドとして追加されるルートコマンドを作成する `main()` 関数が必要です。ルートコマンドはさらに次の処理を行います：
 
-* **setting configurations** by reading in configuration files (e.g. the Cosmos SDK config file).
-* **adding any flags** to it, such as `--chain-id`.
-* **instantiating the `codec`** by injecting the application codecs. The [`codec`](../core/05-encoding.md) is used to encode and decode data structures for the application - stores can only persist `[]byte`s so the developer must define a serialization format for their data structures or use the default, Protobuf.
-* **adding subcommand** for all the possible user interactions, including [transaction commands](#transaction-commands) and [query commands](#query-commands).
+* 設定ファイル（Cosmos SDK設定ファイルなど）を読み込むことで、**setting configuration**。
+* `--chain-id` などのフラグを含むように、**フラグの追加**。
+* アプリケーションコーデックをインジェクションして、**`codec`のインスタンス化**。[`codec`](../core/05-encoding.md)はアプリケーションのデータ構造をエンコードおよびデコードするために使用されます。ストアは `[]byte` のみを永続化できるため、開発者はデータ構造のシリアル化形式を定義するか、デフォルトのProtobufを使用する必要があります。
+* [トランザクションコマンド](#transaction-commands)や[クエリコマンド](#query-commands)を含む、すべての可能なユーザーインタラクションのための**サブコマンドの追加**。
 
-The `main()` function finally creates an executor and [execute](https://pkg.go.dev/github.com/spf13/cobra#Command.Execute) the root command. See an example of `main()` function from the `simapp` application:
+`main()` 関数は最終的に実行者を作成し、ルートコマンドを[実行します](https://pkg.go.dev/github.com/spf13/cobra#Command.Execute)。`simapp` アプリケーションからの`main()`関数の例を以下に示します：
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/simapp/simd/main.go#L12-L24
 ```
 
-The rest of the document will detail what needs to be implemented for each step and include smaller portions of code from the `simapp` CLI files.
+ドキュメントの残りの部分では、各ステップごとに実装する必要がある内容と、`simapp` CLIファイルからのコードの一部を詳しく説明します。
+
 
 ## Adding Commands to the CLI
 
-Every application CLI first constructs a root command, then adds functionality by aggregating subcommands (often with further nested subcommands) using `rootCmd.AddCommand()`. The bulk of an application's unique capabilities lies in its transaction and query commands, called `TxCmd` and `QueryCmd` respectively.
+すべてのアプリケーションCLIは、まずルートコマンドを構築し、`rootCmd.AddCommand()`を使用してサブコマンド（さらにネストされたサブコマンドがあることもあります）を集約することで機能を追加します。アプリケーションの固有の機能の大部分は、トランザクションコマンド（`TxCmd`）およびクエリコマンド（`QueryCmd`）にあります。
 
 ### Root Command
 
-The root command (called `rootCmd`) is what the user first types into the command line to indicate which application they wish to interact with. The string used to invoke the command (the "Use" field) is typically the name of the application suffixed with `-d`, e.g. `simd` or `gaiad`. The root command typically includes the following commands to support basic functionality in the application.
+ルートコマンド（`rootCmd`と呼ばれる）は、ユーザーがコマンドラインに最初に入力することで、どのアプリケーションとやり取りしたいかを示すものです。コマンドを呼び出すために使用される文字列（「Use」フィールド）は、通常、アプリケーションの名前に `-d` が付いたものです。たとえば、`simd` や `gaiad` です。ルートコマンドには通常、アプリケーションの基本的な機能をサポートする以下のコマンドが含まれています。
 
-* **Status** command from the Cosmos SDK rpc client tools, which prints information about the status of the connected [`Node`](../core/03-node.md). The Status of a node includes `NodeInfo`,`SyncInfo` and `ValidatorInfo`.
-* **Keys** [commands](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys) from the Cosmos SDK client tools, which includes a collection of subcommands for using the key functions in the Cosmos SDK crypto tools, including adding a new key and saving it to the keyring, listing all public keys stored in the keyring, and deleting a key. For example, users can type `simd keys add <name>` to add a new key and save an encrypted copy to the keyring, using the flag `--recover` to recover a private key from a seed phrase or the flag `--multisig` to group multiple keys together to create a multisig key. For full details on the `add` key command, see the code [here](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys/add.go). For more details about usage of `--keyring-backend` for storage of key credentials look at the [keyring docs](../run-node/00-keyring.md).
-* **Server** commands from the Cosmos SDK server package. These commands are responsible for providing the mechanisms necessary to start an ABCI CometBFT application and provides the CLI framework (based on [cobra](https://github.com/spf13/cobra)) necessary to fully bootstrap an application. The package exposes two core functions: `StartCmd` and `ExportCmd` which creates commands to start the application and export state respectively.
-Learn more [here](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server).
-* [**Transaction**](#transaction-commands) commands.
-* [**Query**](#query-commands) commands.
+* Cosmos SDK rpcクライアントツールからの**Status**コマンド。これは、接続された[`Node`](../core/03-node.md)のステータスに関する情報を表示します。ノードのステータスには`NodeInfo`、`SyncInfo`、`ValidatorInfo`が含まれます。
+* Cosmos SDKクライアントツールの[**Keys**コマンド](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys)。これには、Cosmos SDK暗号ツールのキー関数を使用するためのサブコマンドのコレクションが含まれており、新しいキーを追加してキーリングに保存したり、キーリングに格納されているすべての公開キーの一覧を表示したり、キーを削除したりするための機能が備わっています。例えば、ユーザーは `simd keys add <name>` と入力して新しいキーを追加し、キーリングに暗号化されたコピーを保存することができます。フラグ `--recover` を使用してシードフレーズからプライベートキーを回復したり、フラグ `--multisig` を使用して複数のキーをグループ化してマルチシグキーを作成したりすることもできます。`add`キーコマンドの詳細については、[こちらのコード](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/client/keys/add.go)を参照してください。キーの認証情報の保存に対する `--keyring-backend` の使用方法の詳細については、[キーリングのドキュメント](../run-node/00-keyring.md)を参照してください。
+* Cosmos SDKサーバーパッケージからの**Server**コマンド。これらのコマンドは、ABCI CometBFTアプリケーションを起動するために必要なメカニズムを提供し、アプリケーションを完全にブートストラップするためのCLIフレームワーク（[cobra](https://github.com/spf13/cobra)に基づく）を提供します。このパッケージは、`StartCmd` および `ExportCmd` という2つのコア関数を公開しており、それぞれアプリケーションを起動するコマンドと状態をエクスポートするコマンドを作成します。詳細は[こちら](https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/server)を参照してください。
+* [**トランザクション**](#transaction-commands)コマンド。
+* [**クエリ**](#query-commands)コマンド。
 
-Next is an example `rootCmd` function from the `simapp` application. It instantiates the root command, adds a [*persistent* flag](#flags) and `PreRun` function to be run before every execution, and adds all of the necessary subcommands.
+次に、`simapp` アプリケーションからの`rootCmd`関数の例です。この関数はルートコマンドをインスタンス化し、[*永続*フラグ](#flags)と、すべての実行前に実行される `PreRun` 関数、および必要なすべてのサブコマンドを追加します。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/simapp/simd/cmd/root_v2.go#L47-L130
