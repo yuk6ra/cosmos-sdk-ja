@@ -13,12 +13,12 @@ https://github.com/cosmos/cosmos-sdk/blob/main/tools/confix/data/v0.47-app.toml
 
 ## inter-block-cache
 
-This feature will consume more ram than a normal node, if enabled.
+この機能は、有効にすると通常のノードよりも多くのRAMを消費します。
 
 ## iavl-cache-size
 
-Using this feature will increase ram consumption
+この機能を使用するとRAMの消費量が増加します。
 
 ## iavl-lazy-loading
 
-This feature is to be used for archive nodes, allowing them to have a faster start up time. 
+この機能はアーカイブノード向けで、起動時間を高速化するために使用されます。
