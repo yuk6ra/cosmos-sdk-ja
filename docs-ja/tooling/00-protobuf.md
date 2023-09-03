@@ -4,17 +4,17 @@ sidebar_position: 1
 
 # Protocol Buffers
 
-It is known that Cosmos SDK uses protocol buffers extensively, this document is meant to provide a guide on how it is used in the cosmos-sdk.
+Cosmos SDKがプロトコルバッファを広範に使用していることは知られていますが、このドキュメントはcosmos-sdkでの使用方法に関するガイドを提供することを目的としています。
 
-To generate the proto file, the Cosmos SDK uses a docker image, this image is provided to all to use as well. The latest version is `ghcr.io/cosmos/proto-builder:0.12.x`
+protoファイルを生成するために、Cosmos SDKはDockerイメージを使用します。このイメージもすべてのユーザーが使用できるよう提供されています。最新バージョンは`ghcr.io/cosmos/proto-builder:0.12.x`です。
 
-Below is the example of the Cosmos SDK's commands for generating, linting, and formatting protobuf files that can be reused in any applications makefile. 
+以下は、protobufファイルの生成、リンティング、およびフォーマットに関するCosmos SDKのコマンドの例であり、任意のアプリケーションのmakefileで再利用できます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/Makefile#L411-L432
 ```
 
-The script used to generate the protobuf files can be found in the `scripts/` directory. 
+protobufファイルを生成するためのスクリプトは`scripts/`ディレクトリにあります。
 
 ```shell reference
 https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/scripts/protocgen.sh
@@ -22,13 +22,13 @@ https://github.com/cosmos/cosmos-sdk/blob/v0.50.0-alpha.0/scripts/protocgen.sh
 
 ## Buf
 
-[Buf](https://buf.build) is a protobuf tool that abstracts the needs to use the complicated `protoc` toolchain on top of various other things that ensure you are using protobuf in accordance with the majority of the ecosystem. Within the cosmos-sdk repository there are a few files that have a buf prefix. Lets start with the top level and then dive into the various directories. 
+[Buf](https://buf.build)は、`protoc`ツールチェーンの複雑さを抽象化し、多くのエコシステムとの整合性を保つためのツールです。cosmos-sdkリポジトリ内にはいくつかのbufプレフィックスを持つファイルがあります。まずトップレベルから各ディレクトリを詳しく見ていきましょう。
 
 ### Workspace
 
 At the root level directory a workspace is defined using [buf workspaces](https://docs.buf.build/configuration/v1/buf-work-yaml). This helps if there are one or more protobuf containing directories in your project. 
 
-Cosmos SDK example: 
+Cosmos SDKの例:
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/buf.work.yaml#L6-L9
@@ -36,7 +36,7 @@ https://github.com/cosmos/cosmos-sdk/blob/main/buf.work.yaml#L6-L9
 
 ### Proto Directory
 
-Next is the `proto/` directory where all of our protobuf files live. In here there are many different buf files defined each serving a different purpose. 
+次は、すべてのprotobufファイルが格納されている`proto/`ディレクトリです。ここには、異なる目的に応じて定義された多くのbufファイルがあります。
 
 ```bash
 ├── README.md
@@ -50,47 +50,47 @@ Next is the `proto/` directory where all of our protobuf files live. In here the
 └── tendermint
 ```
 
-The above diagram all the files and directories within the Cosmos SDK `proto/` directory. 
+上の図は、Cosmos SDKの `proto/`ディレクトリ内のすべてのファイルとディレクトリを示しています。
 
 #### `buf.gen.gogo.yaml`
 
-`buf.gen.gogo.yaml` defines how the protobuf files should be generated for use with in the module. This file uses [gogoproto](https://github.com/gogo/protobuf), a separate generator from the google go-proto generator that makes working with various objects more ergonomic, and it has more performant encode and decode steps
+`buf.gen.gogo.yaml`は、モジュール内で使用するためのprotobufファイルの生成方法を定義します。このファイルは[gogoproto](https://github.com/gogo/protobuf)を使用しており、google go-protoジェネレータとは異なるジェネレータです。これは、さまざまなオブジェクトの操作をよりエルゴノミックにするためのもので、エンコードおよびデコードのステップがより高性能です。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.gen.gogo.yaml#L1-L9
 ```
 
 :::tip
-Example of how to define `gen` files can be found [here](https://docs.buf.build/tour/generate-go-code)
+`gen`ファイルの定義方法の例は[こちら](https://docs.buf.build/tour/generate-go-code)で見ることができます。
 :::
 
 #### `buf.gen.pulsar.yaml`
 
-`buf.gen.pulsar.yaml` defines how protobuf files should be generated using the [new golang apiv2 of protobuf](https://go.dev/blog/protobuf-apiv2). This generator is used instead of the google go-proto generator because it has some extra helpers for Cosmos SDK applications and will have more performant encode and decode than the google go-proto generator. You can follow the development of this generator [here](https://github.com/cosmos/cosmos-proto). 
+`buf.gen.pulsar.yaml`は、[新しいgolang apiv2のprotobuf](https://go.dev/blog/protobuf-apiv2)を使用してprotobufファイルがどのように生成されるべきかを定義しています。このジェネレータは、google go-protoジェネレータの代わりに使用されます。なぜなら、それはCosmos SDKアプリケーションのための追加のヘルパーを持っており、google go-protoジェネレータよりもエンコードとデコードが高性能であるからです。このジェネレータの開発は[こちら](https://github.com/cosmos/cosmos-proto)
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.gen.pulsar.yaml#L1-L18
 ```
 
 :::tip
-Example of how to define `gen` files can be found [here](https://docs.buf.build/tour/generate-go-code)
+`gen`ファイルの定義方法の例は[こちら](https://docs.buf.build/tour/generate-go-code)で見ることができます。
 :::
 
 #### `buf.gen.swagger.yaml`
 
-`buf.gen.swagger.yaml` generates the swagger documentation for the query and messages of the chain. This will only define the REST API end points that were defined in the query and msg servers. You can find examples of this [here](https://github.com/cosmos/cosmos-sdk/blob/main/proto/cosmos/bank/v1beta1/query.proto#L19)
+`buf.gen.swagger.yaml`は、チェーンのクエリとメッセージのためのswaggerドキュメントを生成します。これは、クエリとmsgサーバで定義されたREST APIエンドポイントのみを定義します。この例は[こちら](https://github.com/cosmos/cosmos-sdk/blob/main/proto/cosmos/bank/v1beta1/query.proto#L19)で見ることができます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.gen.swagger.yaml#L1-L6
 ```
 
 :::tip
-Example of how to define `gen` files can be found [here](https://docs.buf.build/tour/generate-go-code)
+`gen`ファイルの定義方法の例は[こちら](https://docs.buf.build/tour/generate-go-code)で見ることができます。
 :::
 
 #### `buf.lock`
 
-This is a autogenerated file based off the dependencies required by the `.gen` files. There is no need to copy the current one. If you depend on cosmos-sdk proto definitions a new entry for the Cosmos SDK will need to be provided. The dependency you will need to use is `buf.build/cosmos/cosmos-sdk`.
+これは、`.gen`ファイルに必要な依存関係に基づいて自動生成されるファイルです。現在のものをコピーする必要はありません。もしcosmos-sdkのproto定義に依存している場合、Cosmos SDKのための新しいエントリを提供する必要があります。使用する必要がある依存関係は`buf.build/cosmos/cosmos-sdk`です。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.lock#L1-L16
@@ -98,15 +98,15 @@ https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.lock#L1-L16
 
 #### `buf.yaml`
 
-`buf.yaml` defines the [name of your package](https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.yaml#L3), which [breakage checker](https://docs.buf.build/tour/detect-breaking-changes) to use and how to [lint your protobuf files](https://docs.buf.build/tour/lint-your-api). 
+`buf.yaml`は、[パッケージの名前](https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.yaml#L3)、使用する[破損チェッカー](https://docs.buf.build/tour/detect-breaking-changes)、およびprotobufファイルを[lintする方法](https://docs.buf.build/tour/lint-your-api)を定義しています。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/proto/buf.yaml#L1-L24
 ```
 
-We use a variety of linters for the Cosmos SDK protobuf files. The repo also checks this in ci. 
+Cosmos SDKのprotobufファイルのためにさまざまなリンターを使用しています。このリポジトリもCIでこれをチェックします。
 
-A reference to the github actions can be found [here](https://github.com/cosmos/cosmos-sdk/blob/main/.github/workflows/proto.yml#L1-L32)
+GitHubアクションへの参照は[こちら](https://github.com/cosmos/cosmos-sdk/blob/main/.github/workflows/proto.yml#L1-L32)で見ることができます。
 
 ```go reference
 https://github.com/cosmos/cosmos-sdk/blob/main/.github/workflows/proto.yml#L1-L32

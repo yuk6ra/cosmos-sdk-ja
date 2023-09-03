@@ -4,8 +4,8 @@ sidebar_position: 0
 
 # Tools
 
-This section provides documentation on various tooling maintained by the SDK team.
-This includes tools for development, operating a node, and ease of use of a Cosmos SDK chain.
+このセクションでは、SDKチームが管理しているさまざまなツールのドキュメントを提供します。
+これには、開発、ノードの操作、およびCosmos SDKチェーンの使用の簡便性のためのツールが含まれています。
 
 ## CLI Tools
 
